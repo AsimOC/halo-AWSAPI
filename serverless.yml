@@ -136,6 +136,11 @@ custom:
         field: getStaffsByEvent
         response: "generic.response.vtl"
 
+      - dataSource: queryGroupLambda
+        type: Query
+        field: getGroups
+        response: "generic.response.vtl"
+
       # Mutation mapping templates
       - dataSource: mutationIncidentLambda
         type: Mutation
@@ -216,6 +221,13 @@ custom:
           lambdaFunctionArn: "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryIncidentHandler"
           serviceRoleArn: "arn:aws:iam::${self:provider.environment.ACCOUNT_ID}:role/${self:custom.appSync.serviceRole}"
       - type: AWS_LAMBDA
+        name: queryGroupLambda
+        description: "Get Group DataSource"
+        timeout: 30
+        config:
+          lambdaFunctionArn: "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryGroupHandler"
+          serviceRoleArn: "arn:aws:iam::${self:provider.environment.ACCOUNT_ID}:role/${self:custom.appSync.serviceRole}"
+      - type: AWS_LAMBDA
         name: mutationIncidentLambda
         description: "Create or Update Incident DataSource"
         timeout: 30
@@ -240,6 +252,8 @@ custom:
 functions:
   queryIncidentHandler:
     handler: src/queryIncidentHandler.handler
+  queryGroupHandler:
+    handler: src/queryGroupHandler.handler
   mutationIncidentHandler:
     handler: src/mutationIncidentHandler.handler
   queryEventHandler:
@@ -273,6 +287,8 @@ resources:
                   Resource:
                     - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryIncidentHandler"
                     - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryIncidentHandler:*"
+                    - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryGroupHandler"
+                    - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryGroupHandler:*"
                     - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-mutationIncidentHandler"
                     - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-mutationIncidentHandler:*"
                     - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryEventHandler"

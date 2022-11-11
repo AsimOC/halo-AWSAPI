@@ -95,6 +95,24 @@ type Query {
     sort: SORT
     event_id: String!
   ): UsersResult!
+
+  getGroups(
+    limit: Int
+    offset: Int
+    sort: SORT
+    loggedInUserId: ID!
+  ): GroupsResult!
+
+}
+
+type Group {
+  client : Client
+  name : String
+  users : [String]
+  icon_file : String
+  object_id : String
+  created_at: AWSDateTime
+  updated_at: AWSDateTime
 }
 
 type Mutation {
@@ -583,6 +601,12 @@ type Points {
 
 type UsersResult {
   items: [User]!
+  count: Int
+  nextOffset: Int
+}
+
+type GroupsResult {
+  items: [Group]!
   count: Int
   nextOffset: Int
 }

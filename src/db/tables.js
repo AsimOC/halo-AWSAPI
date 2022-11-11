@@ -12,7 +12,7 @@ const EVENT_TABLES = {
   EVENT_CHECK_MESSAGE_VIEW: "event_eventcheckmessageview",
 };
 
-const USER_TABLES = { USER: "user_user", CLIENT: "core_client" };
+const USER_TABLES = { USER: "user_user", CLIENT: "core_client" , GROUP : "user_group", GROUP_USERS : "user_group_users"};
 
 const INCIDENT_TABLES = {
   INCIDENT: "incident_incident",
