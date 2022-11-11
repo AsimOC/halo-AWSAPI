@@ -1,0 +1,277 @@
+org: halosolutionsltd
+app: halo-gql
+service: halo-appSync
+
+package:
+  individually: true
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  timeout: 300
+  region: ${opt:region, 'dev'}
+
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "secretsmanager:GetSecretValue"
+          Resource:
+            - "arn:aws:secretsmanager:${param:region}:${param:account}:secret:${opt:stage}/*"
+        - Effect: "Allow"
+          Action:
+            - "execute-api:Invoke"
+          Resource:
+            - "arn:aws:execute-api:${param:region}:${param:account}:*"
+
+  environment:
+    STAGE: ${opt:stage}
+    DATABASE: ${param:database}
+    DB_HOST: ${param:dbhost}
+    DB_USER: ${param:dbuser}
+    DB_PASSWORD: ${param:dbpassword}
+    SG_ID: ${param:sgId}
+    SUBNET_ID: ${param:subnetId}
+    ACCOUNT_ID: ${param:account}
+    DOMAIN_NAME: ${param:domainName}
+    CERTIFICATE_ARN: ${param:certificateARN}
+    CACHE_TYPE: ${param:cacheType}
+    DB_READER_ENDPOINT: ${param:dbReaderEndpoint}
+    NOTIFICATION_API_ENDPOINT: "${param:NOTIFICATION_API_ENDPOINT}/${opt:stage}"
+  vpc:
+    securityGroupIds:
+      - ${param:sgId}
+    subnetIds:
+      - ${param:subnetId}
+plugins:
+  - serverless-appsync-plugin
+  - serverless-offline
+
+custom:
+  accountId: 995138708603
+  appSync:
+    name: ${self:service}-${self:provider.environment.STAGE}
+    domain:
+      name: ${self:provider.environment.DOMAIN_NAME}
+      certificateArn: ${self:provider.environment.CERTIFICATE_ARN}
+    authenticationType: API_KEY
+    caching:
+      behavior: PER_RESOLVER_CACHING
+      ttl: 1800
+      atRestEncryption: true
+      transitEncryption: false
+      type: ${self:provider.environment.CACHE_TYPE}
+    mappingTemplatesLocation: src/mapping-templates
+    mappingTemplates:
+      # Query mapping templates
+      - dataSource: queryIncidentLambda
+        type: Query
+        field: getIncident
+        response: "generic.response.vtl"
+      - dataSource: queryIncidentLambda
+        type: Query
+        field: getIncidents
+        response: "generic.response.vtl"
+      - dataSource: queryIncidentLambda
+        type: Query
+        field: getClosedIncidents
+        response: "generic.response.vtl"
+      - dataSource: queryIncidentLambda
+        type: Query
+        field: getIncidentViews
+        response: "generic.response.vtl"
+      - dataSource: queryIncidentLambda
+        type: Query
+        field: getEventIncidentMessages
+        response: "generic.response.vtl"
+      - dataSource: queryIncidentLambda
+        type: Query
+        field: getIncidentMessages
+        response: "generic.response.vtl"
+
+      - dataSource: queryEventLambda
+        type: Query
+        field: getEvent
+        response: "generic.response.vtl"
+      - dataSource: queryEventLambda
+        type: Query
+        field: getEvents
+        response: "generic.response.vtl"
+      - dataSource: queryEventLambda
+        type: Query
+        field: getUserEvents
+        response: "generic.response.vtl"
+
+      - dataSource: queryEventLambda
+        type: Query
+        field: getEventCheck
+        response: "generic.response.vtl"
+      - dataSource: queryEventLambda
+        type: Query
+        field: getEventChecks
+        response: "generic.response.vtl"
+
+      - dataSource: queryEventLambda
+        type: Query
+        field: getEventCheckMessage
+        response: "generic.response.vtl"
+      - dataSource: queryEventLambda
+        type: Query
+        field: getEventCheckMessages
+        response: "generic.response.vtl"
+
+      - dataSource: queryEventLambda
+        type: Query
+        field: getEventCheckMessageView
+        response: "generic.response.vtl"
+      - dataSource: queryEventLambda
+        type: Query
+        field: getEventCheckMessageViews
+        response: "generic.response.vtl"
+
+      # Mutation mapping templates
+      - dataSource: mutationIncidentLambda
+        type: Mutation
+        field: createIncident
+        response: "generic.response.vtl"
+      - dataSource: mutationIncidentLambda
+        type: Mutation
+        field: updateIncident
+        response: "generic.response.vtl"
+      - dataSource: mutationIncidentLambda
+        type: Mutation
+        field: shareIncident
+        response: "generic.response.vtl"
+      - dataSource: mutationIncidentLambda
+        type: Mutation
+        field: createIncidentMessage
+        response: "generic.response.vtl"
+      - dataSource: mutationIncidentLambda
+        type: Mutation
+        field: createMarkIncidentAsRead
+        response: "generic.response.vtl"
+      - dataSource: mutationIncidentLambda
+        type: Mutation
+        field: createIncidentMessageAsRead
+        response: "generic.response.vtl"
+
+      - dataSource: mutationEventLambda
+        type: Mutation
+        field: createEvent
+        response: "generic.response.vtl"
+      - dataSource: mutationEventLambda
+        type: Mutation
+        field: updateEvent
+        response: "generic.response.vtl"
+      - dataSource: mutationEventLambda
+        type: Mutation
+        field: deleteBatchEvents
+        response: "generic.response.vtl"
+      - dataSource: mutationEventLambda
+        type: Mutation
+        field: createUserEventBook
+        response: "generic.response.vtl"
+
+      - dataSource: mutationEventLambda
+        type: Mutation
+        field: createEventCheck
+        response: "generic.response.vtl"
+      - dataSource: mutationEventLambda
+        type: Mutation
+        field: updateEventCheck
+        response: "generic.response.vtl"
+
+      - dataSource: mutationEventLambda
+        type: Mutation
+        field: createEventCheckMessage
+        response: "generic.response.vtl"
+      - dataSource: mutationEventLambda
+        type: Mutation
+        field: updateEventCheckMessage
+        response: "generic.response.vtl"
+
+      - dataSource: mutationEventLambda
+        type: Mutation
+        field: createEventCheckMessageView
+        response: "generic.response.vtl"
+      - dataSource: mutationEventLambda
+        type: Mutation
+        field: updateEventCheckMessageView
+        response: "generic.response.vtl"
+
+    serviceRole: "HaloAppSyncServiceRole-${self:provider.environment.STAGE}"
+    dataSources:
+      - type: AWS_LAMBDA
+        name: queryIncidentLambda
+        description: "Get Incident DataSource"
+        timeout: 30
+        config:
+          lambdaFunctionArn: "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryIncidentHandler"
+          serviceRoleArn: "arn:aws:iam::${self:provider.environment.ACCOUNT_ID}:role/${self:custom.appSync.serviceRole}"
+      - type: AWS_LAMBDA
+        name: mutationIncidentLambda
+        description: "Create or Update Incident DataSource"
+        timeout: 30
+        config:
+          lambdaFunctionArn: "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-mutationIncidentHandler"
+          serviceRoleArn: "arn:aws:iam::${self:provider.environment.ACCOUNT_ID}:role/${self:custom.appSync.serviceRole}"
+      - type: AWS_LAMBDA
+        name: queryEventLambda
+        description: "Get Event DataSource"
+        timeout: 30
+        config:
+          lambdaFunctionArn: "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryEventHandler"
+          serviceRoleArn: "arn:aws:iam::${self:provider.environment.ACCOUNT_ID}:role/${self:custom.appSync.serviceRole}"
+      - type: AWS_LAMBDA
+        name: mutationEventLambda
+        description: "Create or Update Event DataSource"
+        timeout: 30
+        config:
+          lambdaFunctionArn: "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-mutationEventHandler"
+          serviceRoleArn: "arn:aws:iam::${self:provider.environment.ACCOUNT_ID}:role/${self:custom.appSync.serviceRole}"
+
+functions:
+  queryIncidentHandler:
+    handler: src/queryIncidentHandler.handler
+  mutationIncidentHandler:
+    handler: src/mutationIncidentHandler.handler
+  queryEventHandler:
+    handler: src/queryEventHandler.handler
+  mutationEventHandler:
+    handler: src/mutationEventHandler.handler
+
+resources:
+  Resources:
+    HaloAppSyncServiceRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        RoleName: "HaloAppSyncServiceRole-${self:provider.environment.STAGE}"
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Principal:
+                Service:
+                  - "appsync.amazonaws.com"
+              Action:
+                - "sts:AssumeRole"
+        Policies:
+          - PolicyName: "HaloAppSyncServiceRole-Policy-${self:provider.environment.STAGE}"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: "Allow"
+                  Action:
+                    - "lambda:invokeFunction"
+                  Resource:
+                    - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryIncidentHandler"
+                    - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryIncidentHandler:*"
+                    - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-mutationIncidentHandler"
+                    - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-mutationIncidentHandler:*"
+                    - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryEventHandler"
+                    - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-queryEventHandler:*"
+                    - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-mutationEventHandler"
+                    - "arn:aws:lambda:${self:provider.region}:${self:provider.environment.ACCOUNT_ID}:function:${self:service}-${self:provider.environment.STAGE}-mutationEventHandler:*"

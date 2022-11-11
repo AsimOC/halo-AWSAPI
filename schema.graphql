@@ -1,0 +1,707 @@
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+type Subscription {
+  onCreateIncident: IncidentResult @aws_subscribe(mutations: ["createIncident"])
+  onUpdateIncident: IncidentResult @aws_subscribe(mutations: ["updateIncident"])
+  onShareIncident: IncidentResult @aws_subscribe(mutations: ["shareIncident"])
+  onCreateMarkIncidentAsRead: IncidentResult
+    @aws_subscribe(mutations: ["createMarkIncidentAsRead"])
+  onCreateIncidentMessage: IncidentMessageResult
+    @aws_subscribe(mutations: ["createIncidentMessage"])
+  onCreateIncidentMessageAsRead: IncidentResult
+    @aws_subscribe(mutations: ["createIncidentMessageAsRead"])
+
+  onCreateEvent: EventResult @aws_subscribe(mutations: ["createEvent"])
+  onCreateEventCheck: EventCheckResult
+    @aws_subscribe(mutations: ["createEventCheck"])
+  onCreateEventCheckMessage: EventCheckMessageResult
+    @aws_subscribe(mutations: ["createEventCheckMessage"])
+  onCreateEventCheckMessageView: EventCheckMessageViewResult
+    @aws_subscribe(mutations: ["createEventCheckMessageView"])
+}
+
+type Query {
+  getIncident(id: ID!): IncidentResult
+  getIncidents(
+    eventId: ID
+    limit: Int
+    offset: Int
+    sort: SORT
+  ): IncidentsResult!
+  getClosedIncidents(
+    eventId: ID
+    limit: Int
+    offset: Int
+    sort: SORT
+  ): IncidentsResult!
+  getIncidentViews(
+    id: ID!
+    limit: Int
+    offset: Int
+    sort: SORT
+    loggedInUserId: ID!
+  ): IncidentUserViewsResult!
+  getEventIncidentMessages(
+    eventId: ID!
+    limit: Int
+    offset: Int
+    sort: SORT
+  ): IncidentMessagesResult!
+  getIncidentMessages(
+    incidentId: ID!
+    limit: Int
+    offset: Int
+    sort: SORT
+  ): IncidentMessagesResult!
+
+  getEvents(
+    loggedInUserId: ID!
+    limit: Int
+    offset: Int
+    sort: SORT
+  ): EventsResult!
+  getUserEvents(
+    loggedInUserId: ID!
+    limit: Int
+    offset: Int
+    sort: SORT
+  ): EventsResult!
+  getEvent(loggedInUserId: ID!, id: ID!): EventResult!
+
+  getEventChecks(limit: Int, offset: Int, sort: SORT): EventChecksResult!
+  getEventCheck(id: ID!): EventCheckResult!
+
+  getEventCheckMessages(
+    limit: Int
+    offset: Int
+    sort: SORT
+  ): EventCheckMessagesResult!
+  getEventCheckMessage(id: ID!): EventCheckMessageResult!
+
+  getEventCheckMessageViews(
+    limit: Int
+    offset: Int
+    sort: SORT
+  ): EventCheckMessageViewsResult!
+  getEventCheckMessageView(id: ID!): EventCheckMessageViewResult!
+}
+
+type Mutation {
+  createIncident(
+    object_id: ID
+    location: String
+    status_value: Int
+    tags: String
+    incident_code: String
+    type_value: String!
+    capture_data: AWSJSON
+    triaged: Boolean
+    debrief: Boolean
+    event_id: ID
+    created_by_id: ID
+    imported: Boolean
+  ): IncidentResult!
+
+  shareIncident(
+    incident_id: ID!
+    userIds: String!
+    loggedInUserId: ID!
+    tags: String
+  ): IncidentResult!
+
+  createIncidentMessage(
+    loggedInUserId: ID!
+    incident_id: ID!
+    message: String!
+    attachment: String
+    object_id: ID
+  ): IncidentMessageResult!
+
+  createIncidentMessageAsRead(
+    loggedInUserId: ID!
+    incident_id: ID!
+  ): IncidentResult!
+
+  createEvent(
+    object_id: ID
+    title: String!
+    overview: String
+    start_date: AWSDateTime!
+    end_date: AWSDateTime
+    event_pin: String
+    event_code: String
+    import_performance_id: ID
+    brief_file: String
+    custom_logo_file: String
+    venue_name: String
+    venue_address: String
+    capacity_counter: Int
+    capacity_total: Int
+    zones: String
+    client_id: String!
+    controlled_by_id: ID
+    created_by_id: ID
+    public_report: Boolean
+    imported: Boolean
+    users: String
+  ): EventResult!
+
+  deleteBatchEvents(ids: String!, deleted_by_id: ID!): EventsResult!
+
+  createEventCheck(
+    deleted: Boolean
+    deleted_on: AWSDateTime
+    object_id: ID!
+    occurs_at: AWSDateTime!
+    notified_user_of_availability: Boolean
+    status: STATUS
+    completed_location: String
+    completed_by_id: Int
+    completed_comment: String
+    completed_at: AWSDateTime
+    completed_image: String
+    admin_check_id: Int!
+    deleted_by_id: Int
+    created_by_id: Int
+    updated_by_id: Int
+    event_id: Int!
+    imported: Boolean
+  ): EventCheckResult!
+
+  createEventCheckMessage(
+    deleted: Boolean
+    deleted_on: AWSDateTime
+    object_id: ID!
+    attachment: String
+    message: String
+    deleted_by_id: Int
+    event_check_id: Int!
+    user_id: Int!
+    created_by_id: Int
+    updated_by_id: Int
+    imported: Boolean
+  ): EventCheckMessageResult!
+
+  createEventCheckMessageView(
+    message_id: Int!
+    user_id: Int!
+  ): EventCheckMessageViewResult!
+
+  updateIncident(
+    id: ID!
+    mode: UPDATE_INCIDENT_MODE!
+    loggedInUserId: ID!
+    location: String
+    status_value: Int
+    tags: String
+    type_value: String
+    capture_data: AWSJSON
+    triaged: Boolean
+    debrief: Boolean
+    resolved_text: String
+    resolved_image: String
+    archived_text: String
+  ): IncidentResult!
+
+  createMarkIncidentAsRead(
+    incident_id: ID!
+    loggedInUserId: ID!
+  ): IncidentResult!
+
+  updateEvent(
+    id: ID!
+    title: String
+    overview: String
+    start_date: AWSDateTime
+    end_date: AWSDateTime
+    event_pin: String
+    event_code: String
+    import_performance_id: ID
+    brief_file: String
+    custom_logo_file: String
+    closed: Boolean
+    venue_name: String
+    venue_address: String
+    capacity_counter: Int
+    capacity_total: Int
+    zones: String
+    client_id: ID
+    controlled_by_id: ID
+    updated_by_id: ID
+    public_report: Boolean
+    imported: Boolean
+    users: String
+  ): EventResult!
+
+  createUserEventBook(
+    mode: EVENT_BOOK_MODE!
+    event_id: ID!
+    user_id: ID!
+  ): UserResult!
+
+  updateEventCheck(
+    id: ID!
+    deleted: Boolean
+    deleted_on: AWSDateTime
+    object_id: ID
+    occurs_at: AWSDateTime
+    notified_user_of_availability: Boolean
+    status: STATUS
+    completed_location: String
+    completed_by_id: Int
+    completed_comment: String
+    completed_at: AWSDateTime
+    completed_image: String
+    admin_check_id: Int
+    deleted_by_id: Int
+    created_by_id: Int
+    updated_by_id: Int
+    event_id: Int
+    imported: Boolean
+  ): EventCheckResult!
+
+  updateEventCheckMessage(
+    id: ID!
+    deleted: Boolean
+    deleted_on: AWSDateTime
+    object_id: ID
+    attachment: String
+    message: String
+    deleted_by_id: Int
+    event_check_id: Int
+    user_id: Int
+    created_by_id: Int
+    updated_by_id: Int
+    imported: Boolean
+  ): EventCheckMessageResult!
+
+  updateEventCheckMessageView(
+    id: ID!
+    message_id: Int
+    user_id: Int
+  ): EventCheckMessageViewResult!
+}
+
+type User {
+  id: ID!
+  last_login: AWSDateTime
+  is_superuser: Boolean
+  username: String!
+  first_name: String
+  last_name: String
+  email: String!
+  is_staff: Boolean!
+  is_active: Boolean!
+  date_joined: AWSDateTime!
+  battery_percent: Int!
+  battery_state: String
+  client_id: Int
+  current_event_id: Int
+  current_event: Event
+  current_event_app_role: String
+  deleted: Boolean!
+  deleted_by_id: Int
+  deleted_on: AWSDateTime
+  device_token: String
+  email_verified: Boolean!
+  is_in_geofence: Boolean!
+  is_shift_manager: Boolean!
+  location: Point
+  mobile_number: String
+  name: String!
+  object_id: String!
+  permission_role: String
+  pin: PIN_CHOICES_FOR_USER!
+  pin_icon_url: String
+  role: String!
+  suspended: Boolean!
+  created_at: AWSDateTime!
+  updated_at: AWSDateTime!
+  created_by_id: Int
+  updated_by_id: Int
+  imported: Boolean
+}
+
+type Client {
+  id: ID!
+  deleted: Boolean!
+  deleted_on: AWSDateTime
+  created_at: AWSDateTime!
+  updated_at: AWSDateTime!
+  object_id: String!
+  name: String!
+  contact_name: String
+  contact_phone: String
+  address: String
+  contact_email: String
+  licence_expiry: AWSDateTime
+  event_limit: Int
+  staff_limit: Int
+  enabled_incident_types: [String]
+  enabled_features: [String]
+  suspended: Boolean!
+  deleted_by_id: Int
+  created_by_id: Int
+  updated_by_id: Int
+  imported: Boolean
+}
+
+type Incident {
+  id: ID!
+  deleted: Boolean
+  deleted_on: AWSDateTime
+  created_at: AWSDateTime
+  updated_at: AWSDateTime
+  object_id: ID!
+  location: Point
+  status_value: Int
+  img_file: String
+  tags: [String]
+  incident_code: String
+  type_value: String
+  capture_data: AWSJSON
+  triaged: Boolean!
+  debrief: Boolean!
+  resolved: Boolean!
+  resolved_text: String
+  resolved_date: AWSDateTime
+  resolved_image: String
+  archived: Boolean!
+  archived_text: String
+  archived_date: AWSDateTime
+  archived_by_id: Int
+  archived_by: User
+  deleted_by_id: Int
+  deleted_by: User
+  event_id: ID
+  event: Event
+  reported_by_id: Int
+  reported_by: User
+  resolved_by_id: Int
+  resolved_by: User
+  created_by_id: Int
+  created_by: User
+  updated_by_id: Int
+  updated_by: User
+  imported: Boolean!
+  incident_messages: [ID]
+  subscribed_users: [ID]
+  user_views: [IncidentUserView]
+  triaging_allowed_users: [ID]
+  message_read_list: [ID]
+  last_message_created_at: AWSDateTime
+}
+
+type IncidentMessage {
+  id: ID!
+  deleted: Boolean
+  deleted_on: AWSDateTime
+  created_at: AWSDateTime
+  updated_at: AWSDateTime
+  object_id: ID!
+  message: String
+  attachment: String
+  sent_at: AWSDateTime
+  incident_id: Int!
+  incident: Incident
+  user_id: Int!
+  user: User
+  created_by_id: Int
+  created_by: User
+  updated_by_id: Int
+  updated_by: User
+  deleted_by_id: Int
+  deleted_by: User
+  imported: Boolean
+}
+
+type IncidentUserView {
+  id: ID!
+  created_at: AWSDateTime!
+  updated_at: AWSDateTime!
+  object_id: ID!
+  viewed_at: AWSDateTime!
+  incident_id: Int!
+  user_id: Int!
+  user: User
+  created_by_id: Int
+  updated_by_id: Int
+  imported: Boolean
+}
+
+type AdminCheck {
+  id: ID!
+  deleted: Boolean
+  deleted_on: AWSDateTime
+  created_at: AWSDateTime
+  updated_at: AWSDateTime
+  object_id: ID!
+  event_id: Int!
+  event_type: String!
+  title: String!
+  description: String
+  zones: String
+  image: String
+  start_at: AWSDate!
+  start_at_time: AWSTime!
+  recurring_end_at: AWSDate
+  recurring_end_at_time: AWSTime
+  recurring_period: String!
+  deleted_by_id: Int
+  created_by_id: Int
+  updated_by_id: Int
+  imported: Boolean
+}
+
+type Event {
+  id: ID!
+  deleted: Boolean
+  deleted_on: AWSDateTime
+  created_at: AWSDateTime
+  updated_at: AWSDateTime
+  object_id: ID!
+  title: String!
+  overview: String
+  start_date: AWSDateTime!
+  end_date: AWSDateTime
+  event_pin: String
+  event_code: String
+  import_performance_id: String
+  brief_file: String
+  custom_logo_file: String
+  closed: Boolean
+  venue_name: String
+  venue_address: String
+  capacity_counter: Int
+  capacity_total: Int
+  zones: [String]
+  client_id: Int!
+  client: Client
+  controlled_by_id: Int
+  controlled_by: User
+  deleted_by_id: Int
+  deleted_by: User
+  created_by_id: Int
+  created_by: User
+  updated_by_id: Int
+  updated_by: User
+  public_report: Boolean
+  imported: Boolean
+  users: [String]
+  locations: [Location]
+}
+
+type Location {
+  id: Int
+  name: String
+  object_id: ID
+  updated_at: AWSDateTime
+  points: Points
+}
+
+type EventCheck {
+  id: ID!
+  deleted: Boolean
+  deleted_on: AWSDateTime
+  created_at: AWSDateTime
+  updated_at: AWSDateTime
+  object_id: ID!
+  occurs_at: AWSDateTime!
+  notified_user_of_availability: Boolean
+  status: STATUS
+  completed_location: String
+  completed_by_id: Int
+  completed_by: User
+  completed_comment: String
+  completed_at: AWSDateTime
+  completed_image: String
+  admin_check_id: Int!
+  admin_check: AdminCheck
+  deleted_by_id: Int
+  deleted_by: User
+  created_by_id: Int
+  created_by: User
+  updated_by_id: Int
+  updated_by: User
+  event_id: Int!
+  event: Event
+  imported: Boolean
+}
+
+type EventCheckMessage {
+  id: ID!
+  deleted: Boolean
+  deleted_on: AWSDateTime
+  created_at: AWSDateTime
+  updated_at: AWSDateTime
+  object_id: ID!
+  attachment: String
+  message: String
+  sent_at: AWSDateTime
+  deleted_by_id: Int
+  deleted_by: User
+  event_check_id: Int!
+  event_check: EventCheck
+  user_id: Int!
+  user: User
+  created_by_id: Int
+  created_by: User
+  updated_by_id: Int
+  updated_by: User
+  imported: Boolean
+}
+
+type EventCheckMessageView {
+  id: ID!
+  viewed_at: AWSDateTime!
+  message_id: Int!
+  message: EventCheckMessage
+  user_id: Int!
+  user: User
+}
+
+type Point {
+  type: String
+  coordinates: [Float]
+}
+
+type Points {
+  type: String
+  coordinates: [[Float]]
+}
+
+type UsersResult {
+  items: [User]!
+  count: Int
+  nextOffset: Int
+}
+
+type UserResult {
+  item: User
+}
+
+type EventsResult {
+  items: [Event]!
+  count: Int
+  nextOffset: Int
+}
+
+type EventResult {
+  item: Event
+}
+
+type EventChecksResult {
+  items: [EventCheck]!
+  count: Int
+  nextOffset: Int
+}
+
+type EventCheckResult {
+  item: EventCheck
+}
+
+type EventCheckMessagesResult {
+  items: [EventCheckMessage]!
+  count: Int
+  nextOffset: Int
+}
+
+type EventCheckMessageResult {
+  item: EventCheckMessage
+}
+
+type EventCheckMessageViewsResult {
+  items: [EventCheckMessageView]!
+  count: Int
+  nextOffset: Int
+}
+
+type EventCheckMessageViewResult {
+  item: EventCheckMessageView
+}
+
+type IncidentsResult {
+  items: [Incident]!
+  count: Int
+  nextOffset: Int
+}
+
+type IncidentMessageResult {
+  item: IncidentMessage
+}
+type IncidentMessagesResult {
+  items: [IncidentMessage]!
+  count: Int
+  nextOffset: Int
+}
+
+type IncidentUserViewsResult {
+  items: [IncidentUserView]!
+  count: Int
+  nextOffset: Int
+}
+
+type IncidentResult {
+  item: Incident
+}
+
+enum UPDATE_INCIDENT_MODE {
+  RESOLVE
+  UNRESOLVE
+  CLOSE
+  REOPEN
+  DELETE
+  OTHER
+}
+
+enum RECURRING_PERIOD {
+  never
+  every_fifteen_minutes
+  every_thirty_minutes
+  hourly
+  daily
+  weekly
+  monthly
+  yearly
+}
+
+enum EVENT_TYPE {
+  standard
+  pre_event
+  event
+  pre_egress
+  post_event
+}
+
+enum EVENT_BOOK_MODE {
+  BOOK_ON
+  BOOK_OFF
+}
+
+enum PIN_CHOICES_FOR_USER {
+  standard
+  Standard
+  admin
+  fire
+  medic
+  leadcar
+  housekeeping
+  police
+  custom
+}
+
+enum SORT {
+  ASC
+  DESC
+}
+
+enum STATUS {
+  complete
+  pending
+  couldNotComplete
+  late
+}
