@@ -88,6 +88,13 @@ type Query {
     sort: SORT
   ): EventCheckMessageViewsResult!
   getEventCheckMessageView(id: ID!): EventCheckMessageViewResult!
+
+  getStaffsByEvent(
+    limit: Int
+    offset: Int
+    sort: SORT
+    event_id: String!
+  ): UsersResult!
 }
 
 type Mutation {

@@ -286,8 +286,31 @@ async function getEventCheckMessageViews(root, args) {
   }
 }
 
+async function getStaff(root, args) {
+  let limit = parseInt(args.limit) || 100;
+  let offset = parseInt(args.offset) || 0;
+  let sort = args.sort || "ASC";
+  let { event_id } = args ;
+
+  try {
+    let resp = await pgDb.any(
+      queries.getStaffByEventQuery({ limit, offset, sort, event_id })
+    );
+    console.log("Response from RDS --> ", resp);
+
+    return response({
+      result: resp,
+      main_object_name: "getStaffsByEvent",
+      others: args,
+    });
+  } catch (ex) {
+    handleErrors(ex, args);
+  }
+}
+
 module.exports = {
   getEvent,
+  getStaff,
   getEvents,
   getUserEvents,
   getEventCheck,

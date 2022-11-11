@@ -131,6 +131,10 @@ custom:
         type: Query
         field: getEventCheckMessageViews
         response: "generic.response.vtl"
+      - dataSource: queryEventLambda
+        type: Query
+        field: getStaffsByEvent
+        response: "generic.response.vtl"
 
       # Mutation mapping templates
       - dataSource: mutationIncidentLambda

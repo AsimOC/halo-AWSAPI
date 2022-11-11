@@ -3,6 +3,7 @@
 const {
   getEvent,
   getEvents,
+  getStaff,
   getUserEvents,
 
   getEventCheck,
@@ -59,6 +60,10 @@ module.exports.handler = async (event) => {
       }
       case "getEventCheckMessageViews": {
         result = await getEventCheckMessageViews(null, event.arguments);
+        break;
+      }
+      case "getStaffsByEvent": {
+        result = await getStaff(null, event.arguments);
         break;
       }
 

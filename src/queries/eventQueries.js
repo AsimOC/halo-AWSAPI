@@ -263,9 +263,31 @@ const getEventCheckMessageViewsQuery = ({
             Order By mv.viewed_at ${sort} OFFSET ${offset} LIMIT ${limit};
             `;
 
+const getStaffByEventQuery = ({
+  limit,
+  offset,
+  sort,
+  event_id
+}) => `select uu.*, events.events as event_ids, row_to_json(cc.*) as client from ${USER_TABLES.USER} uu
+  left join ${USER_TABLES.CLIENT} cc on uu.client_id = cc.id
+  LEFT JOIN (SELECT uu.id as user_id, array_to_json(array_agg(ev.object_id)) as events from
+  ${USER_TABLES.USER} as uu
+    LEFT JOIN ${TABLES.EVENT_USERS} as usrs
+              on usrs.user_id  = uu.id
+    LEFT JOIN ${TABLES.EVENT} as ev
+              on ev.id = usrs.event_id
+   where not ev.deleted
+   GROUP BY uu.id) as events on uu.id = events.user_id
+    inner join ${TABLES.EVENT_USERS} eeu on eeu.user_id = uu.id
+    inner join ${TABLES.EVENT} ee on eeu.event_id = ee.id
+       where uu.deleted = false and ee.object_id = ${event_id}
+        Order By uu.name ${sort} OFFSET ${offset} LIMIT ${limit};
+`;
+
 module.exports = {
   getEventQuery,
   getEventsQuery,
+  getStaffByEventQuery,
   getUserEventsQuery,
   getEventCheckQuery,
   getEventChecksQuery,
