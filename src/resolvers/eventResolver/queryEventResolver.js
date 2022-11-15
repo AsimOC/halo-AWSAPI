@@ -1,6 +1,6 @@
 "use strict";
 
-const { pgConnection } = require("../../db/pgConnection");
+const { pgDb } = require("../../db/pgConnection");
 const { USER_TABLES, SCHEMAS } = require("../../db/tables");
 const queries = require("../../queries/eventQueries");
 const checkIdValidity = require("../../utils/checkIdValidity");
@@ -12,7 +12,6 @@ const {
 } = require("../../utils/createError");
 const response = require("../response");
 
-const pgDb = pgConnection();
 const schema = SCHEMAS.PUBLIC;
 
 async function getClientIDAndPermission(user) {
@@ -153,8 +152,6 @@ async function getUserEvents(root, args) {
 }
 
 async function getEventCheck(root, args) {
-  // checkIdValidity(args.id);
-
   try {
     let resp = await pgDb.any(queries.getEventCheckQuery(args.id));
     console.log("Response from RDS --> ", resp);
@@ -180,10 +177,17 @@ async function getEventChecks(root, args) {
 
   try {
     let resp = await pgDb.any(
-      queries.getEventChecksQuery({ limit, offset, sort })
+      queries.getEventChecksQuery({
+        eventId: args.eventId,
+        limit,
+        offset,
+        sort,
+      })
     );
     console.log("Response from RDS --> ", resp);
 
+    args.limit = limit;
+    args.offset = offset;
     return response({
       result: resp,
       main_object_name: "eventcheck",
@@ -195,18 +199,11 @@ async function getEventChecks(root, args) {
 }
 
 async function getEventCheckMessage(root, args) {
-  // checkIdValidity(args.id);
-
   try {
     let resp = await pgDb.any(queries.getEventCheckMessageQuery(args.id));
     console.log("Response from RDS --> ", resp);
 
-    if (resp.length === 0) {
-      return response({
-        result: null,
-        others: args,
-      });
-    }
+    if (resp.length === 0) return response({ result: null, others: args });
 
     resp = resp[0];
     return response({
@@ -224,12 +221,25 @@ async function getEventCheckMessages(root, args) {
   let offset = parseInt(args.offset) || 0;
   let sort = args.sort || "ASC";
 
+  const [clientID, permissionRole] = await getClientIDAndPermission(
+    args.loggedInUserId
+  );
+  const isNotCrestAdmin = permissionRole !== "CrestAdmin";
+
   try {
     let resp = await pgDb.any(
-      queries.getEventCheckMessagesQuery({ limit, offset, sort })
+      queries.getEventCheckMessagesQuery({
+        eventCheckId: args.eventCheckId,
+        limit,
+        offset,
+        sort,
+        clientID: isNotCrestAdmin ? clientID : null,
+      })
     );
     console.log("Response from RDS --> ", resp);
 
+    args.limit = limit;
+    args.offset = offset;
     return response({
       result: resp,
       main_object_name: "eventcheckmessage",
@@ -285,7 +295,6 @@ async function getEventCheckMessageViews(root, args) {
     handleErrors(ex, args);
   }
 }
-
 async function getStaff(root, args) {
   let limit = parseInt(args.limit) || 100;
   let offset = parseInt(args.offset) || 0;
@@ -293,14 +302,22 @@ async function getStaff(root, args) {
   let { event_id } = args ;
 
   try {
+    console.log('get staff')
+    console.log(queries.getStaffByEventQuery({ limit, offset, sort, event_id }))
     let resp = await pgDb.any(
       queries.getStaffByEventQuery({ limit, offset, sort, event_id })
     );
     console.log("Response from RDS --> ", resp);
+    if (resp.length === 0) return response({ result: null, others: args });
+
+    console.log({
+      result: resp,
+      main_object_name: "getstaffsbyevent",
+      others: args,
+    })
 
     return response({
       result: resp,
-      main_object_name: "getStaffsByEvent",
       others: args,
     });
   } catch (ex) {

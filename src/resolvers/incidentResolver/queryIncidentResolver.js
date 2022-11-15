@@ -1,13 +1,11 @@
 "use strict";
 
-const { pgConnection } = require("../../db/pgConnection");
+const { pgDb } = require("../../db/pgConnection");
 const { INCIDENT_TABLES: TABLES, USER_TABLES } = require("../../db/tables");
 const queries = require("../../queries/incidentQueries");
 const handleErrors = require("../../utils/handleErrors");
 let { INVALID_REQUEST, PERMISSION_DENIED } = require("../../utils/createError");
 const { getIncidentID, isCrestAdmin } = require("../../utils/validatorQueries");
-
-const pgDb = pgConnection();
 
 const response = require("../response");
 

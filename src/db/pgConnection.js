@@ -35,8 +35,8 @@ const pgConfig = {
   ssl: true,
 };
 
-const pgConnection = () => pgp(pgConfig);
+const pgDb = pgp(pgConfig);
 
 module.exports = {
-  pgConnection,
+  pgDb,
 };

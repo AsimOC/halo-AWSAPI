@@ -16,7 +16,7 @@ const getS3Credential = async () => {
   }
 };
 
-initiateS3 = async () => {
+const initiateS3 = async () => {
   try {
     const {
       AWS_ACCESS_KEY,
@@ -37,7 +37,7 @@ initiateS3 = async () => {
   }
 };
 
-uploadFile = async (fileName, file) => {
+const uploadFile = async (fileName, file) => {
   try {
     const [s3, bucket] = await initiateS3();
 
@@ -55,29 +55,35 @@ uploadFile = async (fileName, file) => {
   }
 };
 
-isBase64 = (file) => {
+const isBase64 = (file) => {
   return typeof file === "string" && file.includes("base64");
 };
 
-getMetaDataFromBase64File = (file) => {
+const getMetaDataFromBase64File = (file) => {
   if (!isBase64(file)) throw INVALID_REQUEST("file must be a base64 string!");
 
-  const [type, format] = file.split(";")[0].split("/");
+  let [type, format] = file.split(";")[0].split("/");
+
+  if (format === 'svg+xml') format = 'svg'
+  if (format === 'plain') format = 'txt'
+  if (format === 'vnd.openxmlformats-officedocument.spreadsheetml.sheet') format = 'xlsx'
+  if (format === 'vnd.openxmlformats-officedocument.wordprocessingml.document') format = 'docx'
+  if (format === 'msword') format = 'doc'
 
   return [type, format];
 };
 
-generateFileFromBase64 = (file, type) => {
-  if (!isBase64(file)) throw INVALID_REQUEST("file must be a base64 string!");
+const generateFileFromBase64 = (base64Str, type) => {
+  if (!isBase64(base64Str)) throw INVALID_REQUEST("file must be a base64 string!");
 
   // Convert base64 to buffer file
-  let pattern = new RegExp(`^${type}/\\w+;base64,`);
+  const fileString = base64Str.split(';base64,').pop()
 
-  console.log("file as string:::", file.replace(pattern, ""));
+  console.log("file as string:::", fileString);
 
-  const convertedFile = new Buffer.from(file.replace(pattern, ""), "base64");
+  const file = new Buffer.from(fileString, "base64");
 
-  return convertedFile;
+  return file;
 };
 
 module.exports = {

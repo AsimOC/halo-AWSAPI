@@ -1,12 +1,18 @@
 "use strict";
 
-const { pgConnection } = require("../../db/pgConnection");
+const { pgDb } = require("../../db/pgConnection");
 const {
   EVENT_TABLES: TABLES,
   USER_TABLES,
   SCHEMAS,
 } = require("../../db/tables");
-const checkIdValidity = require("../../utils/checkIdValidity");
+const {
+  getUser,
+  getClientId,
+  getUserID,
+  getEvent,
+  getEventCheckID,
+} = require("../../utils/validatorQueries");
 const handleErrors = require("../../utils/handleErrors");
 const {
   NOT_FOUND,
@@ -39,61 +45,7 @@ const response = require("../response");
 const { uid } = require("uid");
 const uuid = require("uuid");
 
-const pgDb = pgConnection();
 const schema = SCHEMAS.PUBLIC;
-
-async function getClientId(object_id) {
-  let query = `select id from ${USER_TABLES.CLIENT} where object_id = '${object_id}'`;
-
-  try {
-    let resp = await pgDb.any(query);
-    console.log("Response from RDS:: Client --> ", resp);
-    if (resp.length === 0) throw new Error("Invalid client_id!");
-
-    return resp[0].id;
-  } catch (error) {
-    handleErrors(error);
-  }
-}
-
-async function getUser(object_id, name) {
-  let query = `select id, permission_role, client_id from ${USER_TABLES.USER} where object_id = '${object_id}' AND NOT deleted`;
-
-  try {
-    let resp = await pgDb.any(query);
-    if (resp.length === 0) throw INVALID_REQUEST(`Invalid ${name}!`);
-
-    return resp[0];
-  } catch (error) {
-    handleErrors(error);
-  }
-}
-
-async function getEvent(object_id, name) {
-  let query = `select id, client_id from ${TABLES.EVENT} where object_id = '${object_id}' AND NOT deleted`;
-
-  try {
-    let resp = await pgDb.any(query);
-    if (resp.length === 0) throw INVALID_REQUEST(`Invalid ${name}!`);
-
-    return resp[0];
-  } catch (error) {
-    handleErrors(error);
-  }
-}
-
-async function getUserId(object_id, name) {
-  let query = `select id from ${USER_TABLES.USER} where object_id = '${object_id}'`;
-
-  try {
-    let resp = await pgDb.any(query);
-    if (resp.length === 0) throw INVALID_REQUEST(`Invalid ${name}!`);
-
-    return resp[0].id;
-  } catch (error) {
-    handleErrors(error);
-  }
-}
 
 async function checkAndInsertUser(usersAsString, eventId) {
   let isUsers = usersAsString && usersAsString.length > 0;
@@ -102,7 +54,7 @@ async function checkAndInsertUser(usersAsString, eventId) {
   let users = usersAsString.split(",");
 
   for (let user of users) {
-    let user_id = await getUserId(user, "user_id");
+    let user_id = await getUserID(user, "user_id");
 
     let userObj = {
       user_id: user_id,
@@ -217,7 +169,7 @@ async function createEvent(root, args) {
     await checkAndInsertUser(args.users, createRes.id);
 
     let resp = await pgDb.any(
-      queries.getEventQuery({ id: createRes.object_id })
+        queries.getEventQuery({ id: createRes.object_id })
     );
     console.log("Response from RDS --> ", resp);
 
@@ -377,9 +329,9 @@ async function deleteBatchEvents(root, args) {
 
   let objectIds = args.ids.split(",");
   let objectIdsAsString = JSON.stringify(objectIds)
-    .replace("[", "(")
-    .replace("]", ")")
-    .replaceAll('"', "'");
+      .replace("[", "(")
+      .replace("]", ")")
+      .replaceAll('"', "'");
 
   let deleteQuery = `UPDATE ${schema}.${TABLES.EVENT} 
                   SET  ${updateAbleFieldsAsString}
@@ -663,7 +615,7 @@ async function createEventCheckMessageView(root, args) {
     console.log("Row created::", createRes);
 
     let resp = await pgDb.any(
-      queries.getEventCheckMessageViewQuery(createRes.id)
+        queries.getEventCheckMessageViewQuery(createRes.id)
     );
     console.log("Response from RDS --> ", resp);
 

@@ -72,10 +72,17 @@ type Query {
   ): EventsResult!
   getEvent(loggedInUserId: ID!, id: ID!): EventResult!
 
-  getEventChecks(limit: Int, offset: Int, sort: SORT): EventChecksResult!
+  getEventChecks(
+    eventId: ID!
+    limit: Int
+    offset: Int
+    sort: SORT
+  ): EventChecksResult!
   getEventCheck(id: ID!): EventCheckResult!
 
   getEventCheckMessages(
+    loggedInUserId: ID!
+    eventCheckId: ID
     limit: Int
     offset: Int
     sort: SORT
@@ -102,15 +109,14 @@ type Query {
     sort: SORT
     loggedInUserId: ID!
   ): GroupsResult!
-
 }
 
 type Group {
-  client : Client
-  name : String
-  users : [String]
-  icon_file : String
-  object_id : String
+  client: Client
+  name: String
+  users: [String]
+  icon_file: String
+  object_id: String
   created_at: AWSDateTime
   updated_at: AWSDateTime
 }
@@ -126,8 +132,8 @@ type Mutation {
     capture_data: AWSJSON
     triaged: Boolean
     debrief: Boolean
-    event_id: ID
-    created_by_id: ID
+    event_id: ID!
+    created_by_id: ID!
     imported: Boolean
   ): IncidentResult!
 
@@ -198,16 +204,11 @@ type Mutation {
   ): EventCheckResult!
 
   createEventCheckMessage(
-    deleted: Boolean
-    deleted_on: AWSDateTime
+    loggedInUserId: ID!
+    event_check_id: ID!
     object_id: ID!
     attachment: String
     message: String
-    deleted_by_id: Int
-    event_check_id: Int!
-    user_id: Int!
-    created_by_id: Int
-    updated_by_id: Int
     imported: Boolean
   ): EventCheckMessageResult!
 
@@ -291,16 +292,10 @@ type Mutation {
 
   updateEventCheckMessage(
     id: ID!
-    deleted: Boolean
-    deleted_on: AWSDateTime
-    object_id: ID
+    loggedInUserId: ID!
+    mode: UPDATE_EVENT_CHECK_MESSAGE_MODE!
     attachment: String
     message: String
-    deleted_by_id: Int
-    event_check_id: Int
-    user_id: Int
-    created_by_id: Int
-    updated_by_id: Int
     imported: Boolean
   ): EventCheckMessageResult!
 
@@ -419,6 +414,7 @@ type Incident {
   triaging_allowed_users: [ID]
   message_read_list: [ID]
   last_message_created_at: AWSDateTime
+  stored_videos: AWSJSON
 }
 
 type IncidentMessage {
@@ -469,7 +465,7 @@ type AdminCheck {
   event_type: String!
   title: String!
   description: String
-  zones: String
+  zones: [String]
   image: String
   start_at: AWSDate!
   start_at_time: AWSTime!
@@ -538,7 +534,7 @@ type EventCheck {
   occurs_at: AWSDateTime!
   notified_user_of_availability: Boolean
   status: STATUS
-  completed_location: String
+  completed_location: Point
   completed_by_id: Int
   completed_by: User
   completed_comment: String
@@ -554,7 +550,18 @@ type EventCheck {
   updated_by: User
   event_id: Int!
   event: Event
+  users: [ID]
+  user_views: [EventCheckReadBy]
+  messages: [ID]
+  message_read_list: [ID]
+  last_message_created_at: AWSDateTime
   imported: Boolean
+}
+
+type EventCheckReadBy {
+  id: ID!
+  user_id: Int!
+  user: User
 }
 
 type EventCheckMessage {
@@ -573,6 +580,7 @@ type EventCheckMessage {
   event_check: EventCheck
   user_id: Int!
   user: User
+  user_views: [EventCheckMessageView]
   created_by_id: Int
   created_by: User
   updated_by_id: Int
@@ -678,6 +686,11 @@ type IncidentUserViewsResult {
 
 type IncidentResult {
   item: Incident
+}
+
+enum UPDATE_EVENT_CHECK_MESSAGE_MODE {
+  DELETE
+  OTHER
 }
 
 enum UPDATE_INCIDENT_MODE {

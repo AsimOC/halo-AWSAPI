@@ -1,6 +1,6 @@
 "use strict";
 
-const { pgConnection } = require("../../db/pgConnection");
+const { pgDb } = require("../../db/pgConnection");
 const { USER_TABLES, SCHEMAS } = require("../../db/tables");
 const queries = require("../../queries/groupQueries");
 const checkIdValidity = require("../../utils/checkIdValidity");
@@ -14,7 +14,6 @@ const response = require("../response");
 const {
   isCrestAdmin, getUserObject
 } = require("../../utils/validatorQueries");
-const pgDb = pgConnection();
 const schema = SCHEMAS.PUBLIC;
 
 
@@ -25,6 +24,7 @@ async function getGroups(root, args) {
   let sort = args.sort || "ASC";
   let clientID = null;
 
+  console.log('get admin')
   try {
     let isAdmin = await isCrestAdmin(args.loggedInUserId, "loggedInUserId");
     if (!isAdmin) {
@@ -32,12 +32,15 @@ async function getGroups(root, args) {
       clientID = user.client_id;
     }
 
+    console.log('get groups query')
+
     let query = queries.getGroupsQuery( {limit, offset, sort, clientID });
     let resp = await pgDb.any(query);
 
+    console.log('response return')
+
     return response({
       result: resp,
-      main_object_name: "getGroups",
       others: args,
     });
 

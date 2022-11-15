@@ -64,6 +64,11 @@ custom:
       atRestEncryption: true
       transitEncryption: false
       type: ${self:provider.environment.CACHE_TYPE}
+    additionalAuthenticationProviders:
+      - authenticationType: AMAZON_COGNITO_USER_POOLS
+        userPoolConfig:
+          awsRegion: ${param:cognito_region}
+          userPoolId: ${param:cognito_pool_id}
     mappingTemplatesLocation: src/mapping-templates
     mappingTemplates:
       # Query mapping templates

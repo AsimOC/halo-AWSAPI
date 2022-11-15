@@ -1,6 +1,6 @@
 "use strict";
 
-const { pgConnection } = require("../../db/pgConnection");
+const { pgDb } = require("../../db/pgConnection");
 const {
   INCIDENT_TABLES: TABLES,
   EVENT_TABLES,
@@ -41,48 +41,91 @@ const response = require("../response");
 const { uid } = require("uid");
 const uuid = require("uuid");
 
-const pgDb = pgConnection();
 const schema = SCHEMAS.PUBLIC;
 
 async function createIncident(root, args) {
   if (args.status_value && args.status_value < 0)
     throw INVALID_REQUEST("status_value must be a positive integer value!");
 
-  const genCaptureDataAndImage = (capture_data) => {
-    if (!capture_data) return ["{}", null];
-    let img_file;
+  let created_by_id = await getUserID(args.created_by_id, "created_by_id");
+  let event_id = await getEventID(args.event_id);
+
+  const handleFileUpload = async (imageFile, attachmentFile) => {
+    let [imageFileType, imageFileFormat] = ["", ""];
+    let [attachmentFileType, attachmentFileFormat] = ["", ""];
+
+    // file extention validation
+    if (imageFile) {
+      [imageFileType, imageFileFormat] = getMetaDataFromBase64File(imageFile);
+
+      if (!imageFileType.includes("image"))
+        throw INVALID_REQUEST("photo field must be an image!");
+    }
+    if (attachmentFile) {
+      [attachmentFileType, attachmentFileFormat] =
+        getMetaDataFromBase64File(attachmentFile);
+
+      if (attachmentFileFormat !== "pdf")
+        throw INVALID_REQUEST("attachment field must be a pdf!");
+    }
+    // ---------------------------------------------------
+
+    // upload files
+    const uploadTo = "incidents/";
+    const fileName = uuid.v1();
+
+    if (imageFile) {
+      imageFile = generateFileFromBase64(imageFile, imageFileType);
+
+      const imageName = `${uploadTo}${fileName}.${imageFileFormat}`;
+      await uploadFile(imageName, imageFile);
+      imageFile = imageName;
+    }
+
+    if (attachmentFile) {
+      attachmentFile = generateFileFromBase64(
+        attachmentFile,
+        attachmentFileType
+      );
+
+      const fileName = `${uploadTo}${fileName}.${attachmentFileFormat}`;
+      await uploadFile(fileName, attachmentFile);
+      attachmentFile = fileName;
+    }
+
+    return [imageFile, attachmentFile];
+  };
+
+  const genCaptureDataAndFile = (capture_data) => {
+    if (!capture_data) return ["{}", null, null];
+    let imageFile;
+    let attachmentFile;
 
     try {
       if (capture_data.photo) {
-        img_file = capture_data.photo;
+        imageFile = capture_data.photo;
         delete capture_data.photo;
       }
+      if (capture_data.attachment) {
+        attachmentFile = capture_data.attachment;
+        delete capture_data.attachment;
+      }
 
-      return [JSON.stringify(capture_data), img_file];
+      return [JSON.stringify(capture_data), imageFile, attachmentFile];
     } catch (error) {
       console.log("Error there:::", error);
       throw INVALID_REQUEST("capture_data must be a json object!");
     }
   };
 
-  let [capture_data, image_file] = genCaptureDataAndImage(args.capture_data);
+  let [capture_data, imageFile, attachmentFile] = genCaptureDataAndFile(
+    args.capture_data
+  );
 
-  if (image_file) {
-    const [type, format] = getMetaDataFromBase64File(image_file);
-    if (!type.includes("image"))
-      throw INVALID_REQUEST("file must be an image!");
-
-    const file = generateFileFromBase64(image_file, type);
-
-    let uploadTo = "incidents/";
-    let name = `${uploadTo}${uuid.v1()}.${format}`;
-
-    console.log("file name:::", name);
-
-    await uploadFile(name, file);
-
-    image_file = name;
-  }
+  [imageFile, attachmentFile] = await handleFileUpload(
+    imageFile,
+    attachmentFile
+  );
 
   const genIncidentCode = () => {
     let left = uid(8).toUpperCase();
@@ -101,14 +144,6 @@ async function createIncident(root, args) {
     return tags;
   };
 
-  let created_by_id;
-  if (args.created_by_id) {
-    created_by_id = await getUserID(args.created_by_id, "created_by_id");
-  }
-
-  let event_id = await getEventID(args.event_id);
-  if (!event_id) throw INVALID_REQUEST("event_id is required!");
-
   let incident = {
     deleted: false,
     created_at: new Date().toISOString(),
@@ -117,7 +152,8 @@ async function createIncident(root, args) {
     location: args.location,
     status_value: args.status_value,
     capture_data: capture_data,
-    img_file: image_file,
+    img_file: imageFile,
+    attachment: attachmentFile,
     tags: genTags(args.tags),
     incident_code: genIncidentCode(),
     type_value: args.type_value,
@@ -369,72 +405,39 @@ async function updateIncident(root, args) {
       others: args,
     });
 
-    let notificationMessage;
+    let notificationParams = {
+      type: notificationTypes.INCIDENT,
+      object: result.item,
+      current_user_id: result.item.updated_by_id,
+      include_log: false,
+      triage: false,
+      category: "BOTH",
+    };
+
     switch (args.mode) {
       case "RESOLVE": {
-        notificationMessage = `Incident ${result.item.type_value}-${result.item.incident_code} has been resolved.`;
-
-        notificationSend({
-          type: notificationTypes.INCIDENT,
-          object: result.item,
-          current_user_id: result.item.updated_by_id,
-          message: notificationMessage,
-          include_log: false,
-          trigger: triggers.INCIDENT_RESOLVED,
-          triage: false,
-          category: "BOTH",
-        });
-
+        notificationParams.message = `Incident ${result.item.type_value}-${result.item.incident_code} has been resolved.`;
+        notificationParams.trigger = triggers.INCIDENT_RESOLVED;
         break;
       }
 
       case "UNRESOLVE": {
-        notificationMessage = `Incident ${result.item.type_value}-${result.item.incident_code} is still unresolved.`;
-
-        notificationSend({
-          type: notificationTypes.INCIDENT,
-          object: result.item,
-          current_user_id: result.item.updated_by_id,
-          message: notificationMessage,
-          include_log: false,
-          trigger: triggers.INCIDENT_UNRESOLVED,
-          triage: false,
-          category: "BOTH",
-        });
+        notificationParams.message = `Incident ${result.item.type_value}-${result.item.incident_code} is still unresolved.`;
+        notificationParams.trigger = triggers.INCIDENT_UNRESOLVED;
 
         break;
       }
 
       case "CLOSE": {
-        notificationMessage = `Incident ${result.item.type_value}-${result.item.incident_code} has been closed.`;
-
-        notificationSend({
-          type: notificationTypes.INCIDENT,
-          object: result.item,
-          current_user_id: result.item.updated_by_id,
-          message: notificationMessage,
-          include_log: false,
-          trigger: triggers.INCIDENT_CLOSED,
-          triage: false,
-          category: "BOTH",
-        });
+        notificationParams.message = `Incident ${result.item.type_value}-${result.item.incident_code} has been closed.`;
+        notificationParams.trigger = triggers.INCIDENT_CLOSED;
 
         break;
       }
 
       case "REOPEN": {
-        notificationMessage = `Incident ${result.item.type_value}-${result.item.incident_code} has been reopened.`;
-
-        notificationSend({
-          type: notificationTypes.INCIDENT,
-          object: result.item,
-          current_user_id: result.item.updated_by_id,
-          message: notificationMessage,
-          include_log: false,
-          trigger: triggers.INCIDENT_REOPENED,
-          triage: false,
-          category: "BOTH",
-        });
+        notificationParams.message = `Incident ${result.item.type_value}-${result.item.incident_code} has been reopened.`;
+        notificationParams.trigger = triggers.INCIDENT_REOPENED;
 
         break;
       }
@@ -443,18 +446,8 @@ async function updateIncident(root, args) {
         break;
 
       case "OTHER": {
-        notificationMessage = `Incident ${result.item.type_value}-${result.item.incident_code} has been updated.`;
-
-        notificationSend({
-          type: notificationTypes.INCIDENT,
-          object: result.item,
-          current_user_id: result.item.updated_by_id,
-          message: notificationMessage,
-          include_log: false,
-          trigger: triggers.INCIDENT_UPDATED,
-          triage: false,
-          category: "BOTH",
-        });
+        notificationParams.message = `Incident ${result.item.type_value}-${result.item.incident_code} has been updated.`;
+        notificationParams.trigger = triggers.INCIDENT_UPDATED;
 
         break;
       }
@@ -462,6 +455,8 @@ async function updateIncident(root, args) {
       default:
         break;
     }
+
+    notificationSend(notificationParams);
 
     return result;
   } catch (ex) {
@@ -668,8 +663,18 @@ async function createIncidentMessage(root, args) {
   let attachment = args.attachment;
   if (attachment) {
     const [type, format] = getMetaDataFromBase64File(attachment);
-    if (!type.includes("image"))
-      throw INVALID_REQUEST("file must be an image!");
+    if (
+      !type.includes("image") &&
+      format !== "txt" &&
+      format !== "xlsx" &&
+      format !== "docx" &&
+      format !== "doc" &&
+      format !== "pdf" &&
+      format !== "csv"
+    )
+      throw INVALID_REQUEST(
+        "file must be an image or pdf or text or csv or word or excel file!"
+      );
 
     const file = generateFileFromBase64(attachment, type);
 

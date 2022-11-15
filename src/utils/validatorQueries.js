@@ -7,9 +7,7 @@ const {
 const handleErrors = require("./handleErrors");
 let createError,
   { INVALID_REQUEST, NOT_FOUND } = require("./createError");
-const { pgConnection } = require("../db/pgConnection");
-
-const pgDb = pgConnection();
+const { pgDb } = require("../db/pgConnection");
 
 module.exports.isCrestAdmin = async (object_id, name) => {
   let query = `select id, permission_role from ${USER_TABLES.USER} where object_id = '${object_id}'`;
@@ -26,14 +24,13 @@ module.exports.isCrestAdmin = async (object_id, name) => {
   }
 };
 
-module.exports.getUserID = async (object_id, name) => {
-  if (!object_id) return null;
-
-  let query = `select id from ${USER_TABLES.USER} where object_id = '${object_id}'`;
+module.exports.getClientId = async (object_id) => {
+  let query = `select id from ${USER_TABLES.CLIENT} where object_id = '${object_id}'`;
 
   try {
     let resp = await pgDb.any(query);
-    if (resp.length === 0) throw INVALID_REQUEST(`Invalid ${name}!`);
+    console.log("Response from RDS:: Client --> ", resp);
+    if (resp.length === 0) throw new Error("Invalid client_id!");
 
     return resp[0].id;
   } catch (error) {
@@ -56,6 +53,34 @@ module.exports.getUserObject = async (object_id, name) => {
   }
 };
 
+module.exports.getUserID = async (object_id, name) => {
+  if (!object_id) return null;
+
+  let query = `select id from ${USER_TABLES.USER} where object_id = '${object_id}' AND NOT deleted`;
+
+  try {
+    let resp = await pgDb.any(query);
+    if (resp.length === 0) throw INVALID_REQUEST(`Invalid ${name}!`);
+
+    return resp[0].id;
+  } catch (error) {
+    handleErrors(error);
+  }
+};
+
+module.exports.getUser = async (object_id, name) => {
+  let query = `select id, permission_role, client_id from ${USER_TABLES.USER} where object_id = '${object_id}' AND NOT deleted`;
+
+  try {
+    let resp = await pgDb.any(query);
+    if (resp.length === 0) throw INVALID_REQUEST(`Invalid ${name}!`);
+
+    return resp[0];
+  } catch (error) {
+    handleErrors(error);
+  }
+};
+
 module.exports.getEventID = async (object_id) => {
   if (!object_id) return null;
 
@@ -67,6 +92,19 @@ module.exports.getEventID = async (object_id) => {
     if (resp.length === 0) throw INVALID_REQUEST("Invalid event_id!");
 
     return resp[0].id;
+  } catch (error) {
+    handleErrors(error);
+  }
+};
+
+module.exports.getEvent = async (object_id, name) => {
+  let query = `select id, client_id from ${EVENT_TABLES.EVENT} where object_id = '${object_id}' AND NOT deleted`;
+
+  try {
+    let resp = await pgDb.any(query);
+    if (resp.length === 0) throw INVALID_REQUEST(`Invalid ${name}!`);
+
+    return resp[0];
   } catch (error) {
     handleErrors(error);
   }
@@ -98,6 +136,21 @@ module.exports.getLastIncidentMessageID = async (incident_id_int, name) => {
     if (resp.length === 0) throw INVALID_REQUEST(`no message existed!`);
 
     return [resp[0].id, resp[0].object_id];
+  } catch (error) {
+    handleErrors(error);
+  }
+};
+
+module.exports.getEventCheckID = async (object_id, name) => {
+  if (!object_id) return null;
+
+  let query = `select id from ${EVENT_TABLES.EVENT_CHECK} where object_id = '${object_id}' AND NOT deleted`;
+
+  try {
+    let resp = await pgDb.any(query);
+    if (resp.length === 0) throw INVALID_REQUEST(`Invalid ${name}!`);
+
+    return resp[0].id;
   } catch (error) {
     handleErrors(error);
   }
