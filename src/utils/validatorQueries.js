@@ -81,6 +81,19 @@ module.exports.getUser = async (object_id, name) => {
   }
 };
 
+module.exports.getUsers = async (object_ids, name) => {
+  let query = `select id, permission_role, client_id from ${USER_TABLES.USER} where object_id in ('${object_ids}')`;
+
+  try {
+    let resp = await pgDb.any(query);
+    if (resp.length === 0) throw INVALID_REQUEST(`Invalid ${name}!`);
+
+    return resp;
+  } catch (error) {
+    handleErrors(error);
+  }
+};
+
 module.exports.getEventID = async (object_id) => {
   if (!object_id) return null;
 

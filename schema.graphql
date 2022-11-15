@@ -181,6 +181,13 @@ type Mutation {
     users: String
   ): EventResult!
 
+  createGroup(
+    client_id: String!
+    loggedInUserId: ID!
+    name: String!
+    users: [String!]!
+  ): GroupResult!
+
   deleteBatchEvents(ids: String!, deleted_by_id: ID!): EventsResult!
 
   createEventCheck(
@@ -631,6 +638,10 @@ type EventsResult {
 
 type EventResult {
   item: Event
+}
+
+type GroupResult {
+  item: Group
 }
 
 type EventChecksResult {
