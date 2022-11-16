@@ -185,7 +185,7 @@ type Mutation {
     client_id: String!
     loggedInUserId: ID!
     name: String!
-    users: [String!]!
+    users: String!
   ): GroupResult!
 
   deleteBatchEvents(ids: String!, deleted_by_id: ID!): EventsResult!
@@ -270,6 +270,13 @@ type Mutation {
     imported: Boolean
     users: String
   ): EventResult!
+
+  updateGroup(
+    id: ID!
+    name: String
+    users: String!
+    updated_by_id: ID!
+  ): GroupResult!
 
   createUserEventBook(
     mode: EVENT_BOOK_MODE!

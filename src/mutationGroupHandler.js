@@ -1,7 +1,7 @@
 "use strict";
 
 const {
-  createGroup, deleteBatchGroups
+  createGroup, deleteBatchGroups , updateGroup
 } = require("./resolvers/groupResolver/mutationGroupResolver");
 
 module.exports.handler = async (event) => {
@@ -16,6 +16,9 @@ module.exports.handler = async (event) => {
         break;
       case "deleteBatchGroups" :
         result = await deleteBatchGroups(null, event.arguments);
+        break;
+      case "updateGroup" :
+        result = await updateGroup(null, event.arguments);
         break;
       default:
         throw `Unknown field, unable to resolve ${event.field}`;

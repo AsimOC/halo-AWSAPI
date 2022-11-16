@@ -88,9 +88,9 @@ async function createIncident(root, args) {
         attachmentFileType
       );
 
-      const fileName = `${uploadTo}${fileName}.${attachmentFileFormat}`;
-      await uploadFile(fileName, attachmentFile);
-      attachmentFile = fileName;
+      const attachmentName = `${uploadTo}${fileName}.${attachmentFileFormat}`;
+      await uploadFile(attachmentName, attachmentFile);
+      attachmentFile = attachmentName;
     }
 
     return [imageFile, attachmentFile];
