@@ -189,6 +189,7 @@ type Mutation {
   ): GroupResult!
 
   deleteBatchEvents(ids: String!, deleted_by_id: ID!): EventsResult!
+  deleteBatchGroups(ids: String!, deleted_by_id: ID!): GroupsResult!
 
   createEventCheck(
     deleted: Boolean
@@ -632,6 +633,12 @@ type UserResult {
 
 type EventsResult {
   items: [Event]!
+  count: Int
+  nextOffset: Int
+}
+
+type GroupsResult {
+  items: [Group]!
   count: Int
   nextOffset: Int
 }

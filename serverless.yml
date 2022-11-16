@@ -224,6 +224,10 @@ custom:
         type: Mutation
         field: updateGroup
         response: "generic.response.vtl"
+      - dataSource: mutationGroupLambda
+        type: Mutation
+        field: deleteBatchGroups
+        response: "generic.response.vtl"
 
     serviceRole: "HaloAppSyncServiceRole-${self:provider.environment.STAGE}"
     dataSources:

@@ -94,8 +94,46 @@ const createGroup = async (root, args) => {
   });
 }
 
+const deleteBatchGroups = async (root, args) => {
+  let { deleted_by_id , ids } = args;
+  deleted_by_id = await getUserID(deleted_by_id, "deleted_by_id");
+
+  //soft delete
+  let group = {
+    deleted: true,
+    deleted_on: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    deleted_by_id: deleted_by_id,
+  };
+
+  let updateAbleFieldsAsString = getUpdateAbleFieldsAsString(group);
+
+  let objectIds = ids.split(",");
+  let objectIdsAsString = JSON.stringify(objectIds)
+      .replace("[", "(")
+      .replace("]", ")")
+      .replaceAll('"', "'");
+
+  let deleteQuery = `UPDATE ${schema}.${USER_TABLES.GROUP} 
+                  SET  ${updateAbleFieldsAsString}
+                  WHERE ${USER_TABLES.GROUP}.object_id IN ${objectIdsAsString} RETURNING *;`;
+
+  console.log("deleteBatchGroups Mutation:::", deleteQuery);
+  try {
+    let resp = await pgDb.any(deleteQuery);
+    console.log("Deleted Successfully!", resp);
+
+    return response({
+      result: resp,
+      main_object_name: null,
+      others: args,
+    });
+  } catch (ex) {
+    handleErrors(ex, args);
+  }
+}
 
 module.exports = {
   createGroup,
-
+  deleteBatchGroups
 };
