@@ -48,6 +48,11 @@ const uuid = require("uuid");
 const schema = SCHEMAS.PUBLIC;
 
 async function checkAndInsertUser(usersAsString, eventId) {
+
+  // first remove all old relations with users of current group
+  let deleteUserRelationQuery = `DELETE FROM ${schema}.${TABLES.EVENT_USERS} WHERE ${TABLES.EVENT_USERS}.event_id = '${eventId}';`;
+  await pgDb.any(deleteUserRelationQuery);
+
   let isUsers = usersAsString && usersAsString.length > 0;
   if (!isUsers) return;
 
