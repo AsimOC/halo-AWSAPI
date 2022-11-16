@@ -30,6 +30,7 @@ const getEventQuery = ({
             on usrs.event_id = ev.id 
           LEFT JOIN ${USER_TABLES.USER} as us
             on us.id = usrs.user_id
+          WHERE not us.deleted
           GROUP BY ev.id) AS users
 	  	  ON users.event_id = ev.id
       LEFT JOIN  

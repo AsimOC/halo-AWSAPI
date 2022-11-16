@@ -76,6 +76,7 @@ async function checkAndInsertUser(usersAsString, eventId) {
   }
 }
 
+//  Event
 async function createEvent(root, args) {
   // Required fields - same as defined in database
 
@@ -89,7 +90,7 @@ async function createEvent(root, args) {
 
   let created_by_id = args.created_by_id;
   if (created_by_id)
-    created_by_id = await getUserId(created_by_id, "created_by_id");
+    created_by_id = await getUserID(created_by_id, "created_by_id");
 
   let brief_file = args.brief_file;
   if (brief_file) {
@@ -169,7 +170,7 @@ async function createEvent(root, args) {
     await checkAndInsertUser(args.users, createRes.id);
 
     let resp = await pgDb.any(
-        queries.getEventQuery({ id: createRes.object_id })
+      queries.getEventQuery({ id: createRes.object_id })
     );
     console.log("Response from RDS --> ", resp);
 
@@ -184,8 +185,6 @@ async function createEvent(root, args) {
   }
 }
 async function updateEvent(root, args) {
-  // checkIdValidity(args.id);
-
   let zones;
   if (args.zones && args.zones.length > 0) {
     zones = args.zones.split(",");
@@ -200,7 +199,7 @@ async function updateEvent(root, args) {
 
   let updated_by_id = args.updated_by_id;
   if (updated_by_id) {
-    updated_by_id = await getUserId(updated_by_id, "updated_by_id");
+    updated_by_id = await getUserID(updated_by_id, "updated_by_id");
   }
 
   let brief_file = args.brief_file;
@@ -316,7 +315,7 @@ async function updateEvent(root, args) {
 }
 
 async function deleteBatchEvents(root, args) {
-  let deleted_by_id = await getUserId(args.deleted_by_id, "deleted_by_id");
+  let deleted_by_id = await getUserID(args.deleted_by_id, "deleted_by_id");
 
   //soft delete
   let event = {
@@ -329,9 +328,9 @@ async function deleteBatchEvents(root, args) {
 
   let objectIds = args.ids.split(",");
   let objectIdsAsString = JSON.stringify(objectIds)
-      .replace("[", "(")
-      .replace("]", ")")
-      .replaceAll('"', "'");
+    .replace("[", "(")
+    .replace("]", ")")
+    .replaceAll('"', "'");
 
   let deleteQuery = `UPDATE ${schema}.${TABLES.EVENT} 
                   SET  ${updateAbleFieldsAsString}
@@ -398,22 +397,17 @@ async function createUserEventBook(root, args) {
   }
 }
 
+//  EventCheck
 async function createEventCheck(root, args) {
   // Required fields - same as defined in database
   let eventCheck = {
-    deleted: args.deleted || false,
-    deleted_on: args.deleted_on,
+    deleted: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     object_id: args.object_id || uid(20),
     occurs_at: args.occurs_at,
     notified_user_of_availability: args.notified_user_of_availability || false,
     status: args.status || "pending",
-    completed_location: args.completed_location,
-    completed_by_id: args.completed_by_id,
-    completed_comment: args.completed_comment,
-    completed_at: args.completed_at,
-    completed_image: args.completed_image,
     admin_check_id: args.admin_check_id,
     deleted_by_id: args.deleted_by_id,
     created_by_id: args.created_by_id,
@@ -448,8 +442,6 @@ async function createEventCheck(root, args) {
   }
 }
 async function updateEventCheck(root, args) {
-  checkIdValidity(args.id);
-
   // Required fields - same as defined in database
   const eventCheck = {
     deleted: args.deleted,
@@ -502,75 +494,168 @@ async function updateEventCheck(root, args) {
 }
 
 async function createEventCheckMessage(root, args) {
+  let userID = await getUserID(args.loggedInUserId, "loggedInUserId");
+  let eventCheckId = await getEventCheckID(
+    args.event_check_id,
+    "event_check_id"
+  );
+
+  let attachment = args.attachment;
+  if (attachment) {
+    const [type, format] = getMetaDataFromBase64File(attachment);
+    if (
+      !type.includes("image") &&
+      format !== "txt" &&
+      format !== "xlsx" &&
+      format !== "docx" &&
+      format !== "doc" &&
+      format !== "pdf" &&
+      format !== "csv"
+    )
+      throw INVALID_REQUEST(
+        "file must be an image or pdf or text or csv or word or excel file!"
+      );
+
+    const file = generateFileFromBase64(attachment, type);
+
+    let uploadTo = "attachments/";
+    let name = `${uploadTo}${uuid.v1()}.${format}`;
+
+    console.log("file name:::", name);
+
+    await uploadFile(name, file);
+
+    attachment = name;
+  }
+
   // Required fields - same as defined in database
   let eventCheckMessage = {
-    deleted: args.deleted || false,
-    deleted_on: args.deleted_on,
+    deleted: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     object_id: args.object_id || uid(20),
-    attachment: args.attachment,
+    attachment: attachment,
     message: args.message,
     sent_at: new Date().toISOString(),
-    deleted_by_id: args.deleted_by_id,
-    event_check_id: args.event_check_id,
-    user_id: args.user_id,
-    created_by_id: args.created_by_id,
-    updated_by_id: args.updated_by_id,
+    event_check_id: eventCheckId,
+    user_id: userID,
+    created_by_id: userID,
+    updated_by_id: userID,
     imported: args.imported || false,
   };
-  console.log(`createEventCheckMessage --> ${eventCheckMessage}`);
+
+  console.log("createEventCheckMessage -->", eventCheckMessage);
+
+  const insertReadBy = async (messageID) => {
+    let checkMsgReadBy = {
+      message_id: messageID,
+      user_id: userID,
+      viewed_at: new Date().toISOString(),
+    };
+
+    console.log("createCheckMessageReadBy -->", checkMsgReadBy);
+    const [fields, values] = getFieldsAndValues(checkMsgReadBy);
+
+    const createReadyBy = `INSERT INTO ${schema}.${TABLES.EVENT_CHECK_MESSAGE_VIEW} (${fields})
+                                                      VALUES (${values}) RETURNING id;`;
+
+    try {
+      let [createRes] = await pgDb.any(createReadyBy);
+      console.log("Row created checkMsgReadBy::", createRes);
+    } catch (ex) {
+      console.log("Error checkMsgReadBy:::", ex);
+    }
+  };
 
   const [fields, values] = getFieldsAndValues(eventCheckMessage);
 
   const create = `INSERT INTO ${schema}.${TABLES.EVENT_CHECK_MESSAGE} (${fields})
                                                       VALUES (${values}) 
-                                                      RETURNING id;`;
+                                                      RETURNING *;`;
 
   console.log("createEventCheckMessage Mutation:::", create);
   try {
     let [createRes] = await pgDb.any(create);
     console.log("Row created::", createRes);
 
-    let resp = await pgDb.any(queries.getEventCheckMessageQuery(createRes.id));
+    await insertReadBy(createRes.id);
+
+    let resp = await pgDb.any(
+      queries.getEventCheckMessageQuery(createRes.object_id)
+    );
     console.log("Response from RDS --> ", resp);
 
     resp = resp[0];
-    return response({
+    let result = response({
       result: resp,
       main_object_name: "eventcheckmessage",
       others: args,
     });
+
+    const eventCheck = result.item.event_check;
+    let adminCheckTitle = "";
+
+    try {
+      let adminCheckRes = await pgDb.any(
+        `select title from event_admincheck where id = ${eventCheck.admin_check_id}`
+      );
+
+      if (adminCheckRes.length > 0) adminCheckTitle = adminCheckRes[0].title;
+    } catch (error) {
+      console.log("Error while getting admin title");
+    }
+
+    notificationSend({
+      type: notificationTypes.EVENT_CHECK_MESSAGE,
+      object: eventCheck,
+      current_user_id: result.item.user_id,
+      message: `New update on check ${adminCheckTitle}`,
+      include_log: false,
+      trigger: triggers.EVENT_CHECK_MESSAGE_ADDED,
+      triage: false,
+      category: "BOTH",
+    });
+
+    return result;
   } catch (ex) {
     handleErrors(ex, args);
   }
 }
+
 async function updateEventCheckMessage(root, args) {
-  checkIdValidity(args.id);
+  let userID = await getUserID(args.loggedInUserId, "loggedInUserId");
+
+  let eventCheckMessage = {
+    updated_at: new Date().toISOString(),
+    updated_by_id: userID,
+  };
 
   // Required fields - same as defined in database
-  const eventCheckMessage = {
-    deleted: args.deleted,
-    deleted_on: args.deleted_on,
-    updated_at: new Date().toISOString(),
-    object_id: args.object_id,
-    attachment: args.attachment,
-    message: args.message,
-    sent_at: new Date().toISOString(),
-    deleted_by_id: args.deleted_by_id,
-    event_check_id: args.event_check_id,
-    user_id: args.user_id,
-    created_by_id: args.created_by_id,
-    updated_by_id: args.updated_by_id,
-    imported: args.imported,
-  };
+  switch (args.mode) {
+    case "DELETE": {
+      eventCheckMessage = {
+        deleted: true,
+        deleted_on: new Date().toISOString(),
+        deleted_by_id: userID,
+      };
+      break;
+    }
+
+    case "OTHER": {
+      throw INVALID_REQUEST("mode 'OTHER' not working at this moment!");
+    }
+
+    default:
+      throw INVALID_REQUEST("Invalid mode!");
+  }
+
   console.log(`updateEventCheckMessage --> ${eventCheckMessage}`);
 
   let updateAbleFieldsAsString = getUpdateAbleFieldsAsString(eventCheckMessage);
 
   const update = `UPDATE ${schema}.${TABLES.EVENT_CHECK_MESSAGE} 
                   SET  ${updateAbleFieldsAsString}
-                  WHERE ${TABLES.EVENT_CHECK_MESSAGE}.id = ${args.id}  
+                  WHERE ${TABLES.EVENT_CHECK_MESSAGE}.object_id = '${args.id}'  
                   RETURNING id;`;
 
   console.log("updateEventCheckMessage Mutation:::", update);
@@ -615,7 +700,7 @@ async function createEventCheckMessageView(root, args) {
     console.log("Row created::", createRes);
 
     let resp = await pgDb.any(
-        queries.getEventCheckMessageViewQuery(createRes.id)
+      queries.getEventCheckMessageViewQuery(createRes.id)
     );
     console.log("Response from RDS --> ", resp);
 
@@ -630,8 +715,6 @@ async function createEventCheckMessageView(root, args) {
   }
 }
 async function updateEventCheckMessageView(root, args) {
-  checkIdValidity(args.id);
-
   // Required fields - same as defined in database
   const eventCheckMessageView = {
     message_id: args.message_id,
