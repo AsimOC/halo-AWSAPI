@@ -1,5 +1,4 @@
 const prepareObject = (combinedObj, main_object_name) => {
-  console.log({combinedObj, main_object_name})
   let mainObj = combinedObj[main_object_name];
   for (let key in combinedObj) {
     if (key === main_object_name) continue;

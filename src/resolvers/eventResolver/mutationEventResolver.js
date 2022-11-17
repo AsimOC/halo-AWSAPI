@@ -51,6 +51,14 @@ async function checkAndInsertUser(usersAsString, eventId) {
 
   // first remove all old relations with users of current group
   let deleteUserRelationQuery = `DELETE FROM ${schema}.${TABLES.EVENT_USERS} WHERE ${TABLES.EVENT_USERS}.event_id = '${eventId}';`;
+
+  try {
+    let deleteEventUserRelation = await pgDb.any(deleteUserRelationQuery);
+    console.log("Event-User relation deleted:: ", deleteEventUserRelation);
+  } catch (error) {
+    console.log("error in deleting event-user relation ::: ", error);
+  }
+
   await pgDb.any(deleteUserRelationQuery);
 
   let isUsers = usersAsString && usersAsString.length > 0;
@@ -74,9 +82,9 @@ async function checkAndInsertUser(usersAsString, eventId) {
 
     try {
       let [createRes] = await pgDb.any(createUser);
-      console.log("User created::", createRes);
+      console.log("attach user with event::", createRes);
     } catch (error) {
-      console.log("error in creating user:::", error);
+      console.log("error ina attaching user :::", error);
     }
   }
 }
