@@ -192,23 +192,23 @@ type Mutation {
   deleteBatchGroups(ids: String!, deleted_by_id: ID!): GroupsResult!
 
   createEventCheck(
-    deleted: Boolean
-    deleted_on: AWSDateTime
     object_id: ID!
     occurs_at: AWSDateTime!
     notified_user_of_availability: Boolean
     status: STATUS
-    completed_location: String
-    completed_by_id: Int
-    completed_comment: String
-    completed_at: AWSDateTime
-    completed_image: String
-    admin_check_id: Int!
-    deleted_by_id: Int
-    created_by_id: Int
-    updated_by_id: Int
-    event_id: Int!
+    created_by_id: ID!
+    event_id: ID!
     imported: Boolean
+    event_type: String
+    title: String!
+    description: String
+    zones: AWSJSON
+    image: String
+    start_at: AWSDate!
+    start_at_time: AWSTime!
+    recurring_end_at: AWSDate
+    recurring_end_at_time: AWSTime
+    recurring_period: String
   ): EventCheckResult!
 
   createEventCheckMessage(

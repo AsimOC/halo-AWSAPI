@@ -51,14 +51,6 @@ async function checkAndInsertUser(usersAsString, eventId) {
 
   // first remove all old relations with users of current group
   let deleteUserRelationQuery = `DELETE FROM ${schema}.${TABLES.EVENT_USERS} WHERE ${TABLES.EVENT_USERS}.event_id = '${eventId}';`;
-
-  try {
-    let deleteEventUserRelation = await pgDb.any(deleteUserRelationQuery);
-    console.log("Event-User relation deleted:: ", deleteEventUserRelation);
-  } catch (error) {
-    console.log("error in deleting event-user relation ::: ", error);
-  }
-
   await pgDb.any(deleteUserRelationQuery);
 
   let isUsers = usersAsString && usersAsString.length > 0;
@@ -82,9 +74,9 @@ async function checkAndInsertUser(usersAsString, eventId) {
 
     try {
       let [createRes] = await pgDb.any(createUser);
-      console.log("attach user with event::", createRes);
+      console.log("User created::", createRes);
     } catch (error) {
-      console.log("error ina attaching user :::", error);
+      console.log("error in creating user:::", error);
     }
   }
 }
@@ -421,13 +413,47 @@ async function createEventCheck(root, args) {
     occurs_at: args.occurs_at,
     notified_user_of_availability: args.notified_user_of_availability || false,
     status: args.status || "pending",
-    admin_check_id: args.admin_check_id,
-    deleted_by_id: args.deleted_by_id,
+    deleted_by_id: null,
     created_by_id: args.created_by_id,
-    updated_by_id: args.updated_by_id,
     event_id: args.event_id,
     imported: args.imported || false,
   };
+
+  let adminCheck = {
+    deleted_on: null,
+    event_type: args.event_type || TYPE_CHOICES['event'],
+    title: args.title,
+    object_id: uid(20),
+    description: args.description || '',
+    zones: args.zones || [],
+    image: args.image || '',
+    start_at: args.start_at,
+    start_at_time: args.start_at_time,
+    recurring_end_at: args.recurring_end_at || null,
+    recurring_end_at_time: args.recurring_end_at_time || null,
+    recurring_period: args.recurring_period || RECURRING_CHECK_CHOICES.never,
+  }
+
+
+  const insertQuery = {
+    text: `INSERT INTO ${TABLES.EVENT_ADMIN_CHECK}
+      (deleted, created_at, updated_at, object_id, event_type, title, description, zones, image, start_at,
+      start_at_time, recurring_period, event_id, created_by_id, updated_by_id) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
+      SELECT id FROM ${TABLES.EVENT_ADMIN_CHECK} where object_id = $4`,
+    values: [
+      eventCheck.deleted, eventCheck.created_at, eventCheck.updated_at, adminCheck.object_id,
+      adminCheck.event_type, adminCheck.title, adminCheck.description, adminCheck.zones,
+      adminCheck.image, adminCheck.start_at, adminCheck.start_at_time, adminCheck.recurring_period,
+      eventCheck.event_id, eventCheck.created_by_id, eventCheck.updated_by_id
+    ],
+  };
+
+  let adminRes = await pgDb.any(insertQuery);
+
+  console.log('admin return', adminRes)
+  eventCheck.admin_check_id = adminRes[0].id
+
   console.log(`createEventCheck --> ${eventCheck}`);
 
   const [fields, values] = getFieldsAndValues(eventCheck);

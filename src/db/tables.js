@@ -12,6 +12,7 @@ const EVENT_TABLES = {
   EVENT_CHECK_USERS: "event_eventcheck_users",
   EVENT_CHECK_MESSAGE: "event_eventcheckmessage",
   EVENT_CHECK_MESSAGE_VIEW: "event_eventcheckmessageview",
+  EVENT_ADMIN_CHECK: 'event_admincheck',
 };
 
 const USER_TABLES = { 
