@@ -69,10 +69,6 @@ const createGroup = async (root, args) => {
   let query = queries.createGroupQuery(fields, values);
   let [group] = await pgDb.any(query);
 
-  if (users.length === 0) {
-    return group;
-  }
-
   await checkAndInsertUser(users, group.id);
 
   // get created group
@@ -80,7 +76,7 @@ const createGroup = async (root, args) => {
   resp = resp[0];
   return response({
     result: resp,
-    main_object_name: "group",
+    main_object_name: null,
     others: args,
   });
 }
@@ -138,10 +134,12 @@ const updateGroup = async (root, args) => {
   let updateQuery = `UPDATE ${schema}.${USER_TABLES.GROUP} 
                   SET  ${updateAbleFieldsAsString}
                   WHERE ${USER_TABLES.GROUP}.object_id = '${id}' RETURNING *;`;
-  let resp = await pgDb.any(updateQuery);
-  resp = resp[0];
+  let [group] = await pgDb.any(updateQuery);
+  await checkAndInsertUser(users, group.id);
 
-  await checkAndInsertUser(users, resp.id);
+  // get updated group
+  let resp = await pgDb.any(queries.getGroupQuery(group.object_id));
+  resp = resp[0];
 
   return response({
     result: resp,
@@ -163,6 +161,7 @@ async function checkAndInsertUser(usersAsString, groupId) {
     let users = usersAsString.split(",");
 
     for (let user of users) {
+      try {
       let user_id = await getUserID(user, "user_id");
 
       // if not found userId then continue to next loop
@@ -180,7 +179,6 @@ async function checkAndInsertUser(usersAsString, groupId) {
                VALUES (${values})
                  RETURNING id;`;
 
-      try {
         let [createRes] = await pgDb.any(q);
         console.log("User relation created::", createRes);
       } catch (error) {

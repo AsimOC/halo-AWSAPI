@@ -38,7 +38,7 @@ select ug.*, row_to_json(cc.*) as client, users.users as users
     LEFT JOIN ${USER_TABLES.USER} as uu on uu.id = ugu.user_id
     where not uu.deleted
     GROUP BY ug.id
-  ) as users on users.group_id = ug.id WHERE not ug.deleted AND ug.object_id = ${object_id};`;
+  ) as users on users.group_id = ug.id WHERE not ug.deleted AND ug.object_id = '${object_id}';`;
 
 const createGroupQuery = ( fields, values) => `INSERT INTO ${schema}.${USER_TABLES.GROUP} (${fields})
                                                       VALUES (${values}) 
