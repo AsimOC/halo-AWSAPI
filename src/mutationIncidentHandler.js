@@ -17,15 +17,27 @@ module.exports.handler = async (event) => {
 
     switch (event.field) {
       case "createIncident": {
-        result = await createIncident(null, event.arguments);
+        result = await createIncident(
+          null,
+          event.arguments,
+          event.requestedFields
+        );
         break;
       }
       case "updateIncident": {
-        result = await updateIncident(null, event.arguments);
+        result = await updateIncident(
+          null,
+          event.arguments,
+          event.requestedFields
+        );
         break;
       }
       case "shareIncident": {
-        result = await shareIncident(null, event.arguments);
+        result = await shareIncident(
+          null,
+          event.arguments,
+          event.requestedFields
+        );
         break;
       }
       case "createIncidentMessage": {
@@ -33,11 +45,19 @@ module.exports.handler = async (event) => {
         break;
       }
       case "createMarkIncidentAsRead": {
-        result = await createMarkIncidentAsRead(null, event.arguments);
+        result = await createMarkIncidentAsRead(
+          null,
+          event.arguments,
+          event.requestedFields
+        );
         break;
       }
       case "createIncidentMessageAsRead": {
-        result = await createIncidentMessageAsRead(null, event.arguments);
+        result = await createIncidentMessageAsRead(
+          null,
+          event.arguments,
+          event.requestedFields
+        );
         break;
       }
       default:

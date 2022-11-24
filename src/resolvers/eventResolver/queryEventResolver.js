@@ -11,6 +11,7 @@ const {
   PERMISSION_DENIED,
 } = require("../../utils/createError");
 const response = require("../response");
+const { getEventID } = require("../../utils/validatorQueries");
 
 const schema = SCHEMAS.PUBLIC;
 
@@ -198,6 +199,55 @@ async function getEventChecks(root, args) {
   }
 }
 
+async function getAdminCheck(root, args){
+  try{
+    let resp = await pgDb.any(queries.getAdminCheckQuery(args.object_id))
+    console.log("Response from RDS ==> ", resp)
+
+    if(resp.length === 0) return response({result: null, others: args})
+
+    resp = resp[0];
+
+    return response({
+    result: resp,
+    main_object_name: "admincheck",
+    others: args,
+    })
+  }catch(ex){
+    handleErrors(ex,args);
+  }
+}
+
+async function getAdminChecks(root, args){
+  let limit = parseInt(args.limit) || 100;
+  let offset = parseInt(args.offset) || 0;
+  let sort = args.sort || "ASC";
+  try{
+    //convert eventId
+    let eventId = await getEventID(args.eventId)
+    console.log('event id', eventId)
+    let resp = await pgDb.any(queries.getAdminChecksQuery(
+      eventId,
+      limit,
+      offset,
+      sort,
+      ))
+    console.log("Response from RDS ==> ", resp)
+
+    if(resp.length === 0) return response({result: null, others: args})
+
+    args.limit = limit;
+    args.offset = offset;
+    return response({
+    result: resp,
+    main_object_name: "adminchecks",
+    others: args,
+    })
+  }catch(ex){
+    handleErrors(ex,args);
+  }
+}
+
 async function getEventCheckMessage(root, args) {
   try {
     let resp = await pgDb.any(queries.getEventCheckMessageQuery(args.id));
@@ -330,6 +380,8 @@ module.exports = {
   getStaff,
   getEvents,
   getUserEvents,
+  getAdminCheck,
+  getAdminChecks,
   getEventCheck,
   getEventChecks,
   getEventCheckMessage,

@@ -9,6 +9,9 @@ const {
   getEventCheck,
   getEventChecks,
 
+  getAdminCheck,
+  getAdminChecks,
+
   getEventCheckMessage,
   getEventCheckMessages,
 
@@ -42,6 +45,14 @@ module.exports.handler = async (event) => {
       }
       case "getEventChecks": {
         result = await getEventChecks(null, event.arguments);
+        break;
+      }
+      case "getAdminCheck":{
+        result = await getAdminCheck(null, event.arguments);
+        break;
+      }
+      case "getAdminChecks":{
+        result = await getAdminChecks(null, event.arguments);
         break;
       }
 

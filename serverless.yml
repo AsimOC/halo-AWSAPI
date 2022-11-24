@@ -121,6 +121,15 @@ custom:
 
       - dataSource: queryEventLambda
         type: Query
+        field: getAdminCheck
+        response: "generic.response.vtl"
+      - dataSource: queryEventLambda
+        type: Query
+        field: getAdminChecks
+        response: "generic.response.vtl"
+
+      - dataSource: queryEventLambda
+        type: Query
         field: getEventCheckMessage
         response: "generic.response.vtl"
       - dataSource: queryEventLambda

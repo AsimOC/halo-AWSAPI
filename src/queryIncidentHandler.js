@@ -17,15 +17,27 @@ module.exports.handler = async (event) => {
 
     switch (event.field) {
       case "getIncident": {
-        result = await getIncident(null, event.arguments);
+        result = await getIncident(
+          null,
+          event.arguments,
+          event.requestedFields
+        );
         break;
       }
       case "getIncidents": {
-        result = await getIncidents(null, event.arguments);
+        result = await getIncidents(
+          null,
+          event.arguments,
+          event.requestedFields
+        );
         break;
       }
       case "getClosedIncidents": {
-        result = await getClosedIncidents(null, event.arguments);
+        result = await getClosedIncidents(
+          null,
+          event.arguments,
+          event.requestedFields
+        );
         break;
       }
       case "getIncidentViews": {

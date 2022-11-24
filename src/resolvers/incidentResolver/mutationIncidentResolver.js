@@ -7,6 +7,8 @@ const {
   USER_TABLES,
   SCHEMAS,
 } = require("../../db/tables");
+const { getRequestedFields } = require("../../utils/requestedFieldsValidators");
+const { INCIDENT_TABLE_INFO } = require("../../db/tableRelations");
 const handleErrors = require("../../utils/handleErrors");
 const queries = require("../../queries/incidentQueries");
 const {
@@ -43,7 +45,7 @@ const uuid = require("uuid");
 
 const schema = SCHEMAS.PUBLIC;
 
-async function createIncident(root, args) {
+async function createIncident(root, args, requiredFields) {
   if (args.status_value && args.status_value < 0)
     throw INVALID_REQUEST("status_value must be a positive integer value!");
 
@@ -173,7 +175,7 @@ async function createIncident(root, args) {
 
   const create = `INSERT INTO ${schema}.${TABLES.INCIDENT} (${fields})
                                                       VALUES (${values}) 
-                                                      RETURNING *;`;
+                                                      RETURNING id;`;
 
   console.log("Create Incident Mutation:::", create);
   try {
@@ -189,23 +191,24 @@ async function createIncident(root, args) {
 
     try {
       const createSubscribed = `INSERT INTO ${schema}.${TABLES.SUBSCRIBED_USERS} (${subscribedFields})
-                                                      VALUES (${subscribedValues}) 
-                                                      RETURNING *;`;
-      let [subscribedRes] = await pgDb.any(createSubscribed);
-      console.log("subscribed created::", subscribedRes);
+                                                      VALUES (${subscribedValues});`;
+      await pgDb.any(createSubscribed);
+      console.log("subscribed created");
     } catch (error) {
       console.log("Error while creating subscribed:::", error);
     }
     // ------------------------------------------------------- //
 
-    let [resp] = await pgDb.any(
-      queries.getIncidentQuery({ id: createRes.object_id })
+    requiredFields = getRequestedFields(requiredFields, INCIDENT_TABLE_INFO);
+    console.log("The requested createIncident fields:::", requiredFields);
+
+    let resp = await pgDb.any(
+      queries.generateIncidentQuery({ id: createRes.id, requiredFields })
     );
     console.log("Response from RDS --> ", resp);
 
     let result = response({
-      result: resp,
-      main_object_name: "incident",
+      result: resp[0]?.data,
       others: args,
     });
 
@@ -226,7 +229,7 @@ async function createIncident(root, args) {
   }
 }
 
-async function updateIncident(root, args) {
+async function updateIncident(root, args, requiredFields) {
   let userID = await getUserID(args.loggedInUserId, "loggedInUserId");
 
   let incident;
@@ -383,25 +386,30 @@ async function updateIncident(root, args) {
   const update = `UPDATE ${schema}.${TABLES.INCIDENT} 
                   SET  ${updateAbleFieldsAsString}
                   WHERE ${TABLES.INCIDENT}.object_id = '${args.id}'  
-                  RETURNING *;`;
+                  RETURNING id;`;
 
   console.log("updateIncident Mutation:::", update);
 
   try {
-    let [data] = await pgDb.any(update);
-    console.log("Updated Successfully!");
+    let [updateRes] = await pgDb.any(update);
+    console.log("Updated Successfully::", updateRes);
+
+    requiredFields = getRequestedFields(requiredFields, INCIDENT_TABLE_INFO);
+    console.log("The requested updateIncident fields:::", requiredFields);
 
     let resp = await pgDb.any(
-      queries.getIncidentQuery({ id: args.id, excludeDeleted: false })
+      queries.generateIncidentQuery({
+        id: updateRes.id,
+        excludeDeleted: false,
+        requiredFields,
+      })
     );
     console.log("Response from RDS --> ", resp);
 
     if (resp.length === 0) throw NOT_FOUND("id doesn't exist!");
 
-    resp = resp[0];
     let result = response({
-      result: resp,
-      main_object_name: "incident",
+      result: resp[0]?.data,
       others: args,
     });
 
@@ -464,7 +472,7 @@ async function updateIncident(root, args) {
   }
 }
 
-async function shareIncident(root, args) {
+async function shareIncident(root, args, requiredFields) {
   let loggedInUserId = await getUserID(args.loggedInUserId, "loggedInUserId");
   let incidentID = await getIncidentID(args.incident_id, "incident_id");
 
@@ -598,19 +606,21 @@ async function shareIncident(root, args) {
     };
     let updateAbleFieldsAsString =
       getUpdateAbleFieldsAsString(updateIncidentFields);
-    console.log("Updated fields for incident:::", updateAbleFieldsAsString);
+    console.log(
+      "Updated fields for shareIncident:::",
+      updateAbleFieldsAsString
+    );
 
     const updateIncident = `UPDATE ${schema}.${TABLES.INCIDENT} 
                   SET  ${updateAbleFieldsAsString}
-                  WHERE ${TABLES.INCIDENT}.object_id = '${args.incident_id}'  
-                  RETURNING *;`;
+                  WHERE ${TABLES.INCIDENT}.object_id = '${args.incident_id}';`;
 
     console.log("updateIncident Mutation:::", updateIncident);
 
     await pgDb.any(updateIncident);
     console.log("Updated Successfully!");
   } catch (error) {
-    console.log("Error while updating the Incident:::", error);
+    console.log("Error while sharing the Incident:::", error);
   }
   // ------------------------------------------------
 
@@ -618,14 +628,19 @@ async function shareIncident(root, args) {
   let result = null;
 
   try {
-    let [resp] = await pgDb.any(
-      queries.getIncidentQuery({ id: args.incident_id })
+    requiredFields = getRequestedFields(requiredFields, INCIDENT_TABLE_INFO);
+    console.log("The requested updateIncident fields:::", requiredFields);
+
+    let resp = await pgDb.any(
+      queries.generateIncidentQuery({
+        id: incidentID,
+        requiredFields,
+      })
     );
     console.log("Response from RDS --> ", resp);
 
     result = response({
-      result: resp,
-      main_object_name: "incident",
+      result: resp[0]?.data,
       others: args,
     });
   } catch (error) {
@@ -771,9 +786,9 @@ async function createIncidentMessage(root, args) {
   }
 }
 
-async function createMarkIncidentAsRead(root, args) {
-  let incidentID = await getIncidentID(args.incident_id, "incident_id");
+async function createMarkIncidentAsRead(root, args, requiredFields) {
   let userID = await getUserID(args.loggedInUserId, "loggedInUserId");
+  let incidentID = await getIncidentID(args.incident_id, "incident_id");
 
   const alreadyViewedQuery = `SELECT id FROM ${schema}.${TABLES.USER_VIEWS} WHERE user_id = ${userID} AND incident_id = ${incidentID}`;
   console.log("AlreadyViewedQuery Query:::", alreadyViewedQuery);
@@ -807,22 +822,29 @@ async function createMarkIncidentAsRead(root, args) {
       console.log("Row created createMarkIncidentAsRead::");
     }
 
+    requiredFields = getRequestedFields(requiredFields, INCIDENT_TABLE_INFO);
+    console.log("The requested fields:::", requiredFields);
+
     let resp = await pgDb.any(
-      queries.getIncidentQuery({ id: args.incident_id, excludeDeleted: false })
+      queries.generateIncidentQuery({
+        id: incidentID,
+        excludeDeleted: false,
+        requiredFields,
+      })
     );
     console.log("Response from RDS --> ", resp);
 
     return response({
-      result: resp[0],
-      main_object_name: "incident",
+      result: resp[0]?.data,
       others: args,
     });
   } catch (ex) {
     console.log("Error createMarkIncidentAsRead:::", ex);
+    handleErrors(ex, args);
   }
 }
 
-async function createIncidentMessageAsRead(root, args) {
+async function createIncidentMessageAsRead(root, args, requiredFields) {
   let userID = await getUserID(args.loggedInUserId, "loggedInUserId");
 
   let incidentID = await getIncidentID(args.incident_id, "incident_id");
@@ -855,18 +877,24 @@ async function createIncidentMessageAsRead(root, args) {
       console.log("Row created createIncidentMessageAsRead::");
     }
 
-    let [resp] = await pgDb.any(
-      queries.getIncidentQuery({ id: args.incident_id })
+    requiredFields = getRequestedFields(requiredFields, INCIDENT_TABLE_INFO);
+    console.log("The requested fields:::", requiredFields);
+
+    let resp = await pgDb.any(
+      queries.generateIncidentQuery({
+        id: incidentID,
+        requiredFields,
+      })
     );
     console.log("Response from RDS --> ", resp);
 
     return response({
-      result: resp,
-      main_object_name: "incident",
+      result: resp[0]?.data,
       others: args,
     });
   } catch (ex) {
     console.log("Error createIncidentMessageAsRead:::", ex);
+    handleErrors(ex, args);
   }
 }
 

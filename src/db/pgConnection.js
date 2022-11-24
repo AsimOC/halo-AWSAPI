@@ -39,4 +39,5 @@ const pgDb = pgp(pgConfig);
 
 module.exports = {
   pgDb,
+  pgp
 };

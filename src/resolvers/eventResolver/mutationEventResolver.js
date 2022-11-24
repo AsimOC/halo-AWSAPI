@@ -1,6 +1,6 @@
 "use strict";
 
-const { pgDb } = require("../../db/pgConnection");
+const { pgDb, pgp } = require("../../db/pgConnection");
 const {
   EVENT_TABLES: TABLES,
   USER_TABLES,
@@ -44,6 +44,8 @@ const response = require("../response");
 
 const { uid } = require("uid");
 const uuid = require("uuid");
+const { RECURRING_CHECK_CHOICES } = require("../../utils/check_choices");
+const moment = require("moment");
 
 const schema = SCHEMAS.PUBLIC;
 
@@ -410,7 +412,7 @@ async function createEventCheck(root, args) {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     object_id: args.object_id || uid(20),
-    occurs_at: args.occurs_at,
+    occurs_at: args.start_at,
     notified_user_of_availability: args.notified_user_of_availability || false,
     status: args.status || "pending",
     deleted_by_id: null,
@@ -432,20 +434,23 @@ async function createEventCheck(root, args) {
     recurring_end_at: args.recurring_end_at || null,
     recurring_end_at_time: args.recurring_end_at_time || null,
     recurring_period: args.recurring_period || RECURRING_CHECK_CHOICES.never,
+    users: args.users
   }
+
+  eventCheck.created_by_id = await getUserID(eventCheck.created_by_id, "created_by_id");
 
 
   const insertQuery = {
     text: `INSERT INTO ${TABLES.EVENT_ADMIN_CHECK}
       (deleted, created_at, updated_at, object_id, event_type, title, description, zones, image, start_at,
-      start_at_time, recurring_period, event_id, created_by_id, updated_by_id) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
-      SELECT id FROM ${TABLES.EVENT_ADMIN_CHECK} where object_id = $4`,
+      start_at_time, recurring_period, event_id, created_by_id, updated_by_id, recurring_end_at, recurring_end_at_time) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *`,
     values: [
       eventCheck.deleted, eventCheck.created_at, eventCheck.updated_at, adminCheck.object_id,
       adminCheck.event_type, adminCheck.title, adminCheck.description, adminCheck.zones,
       adminCheck.image, adminCheck.start_at, adminCheck.start_at_time, adminCheck.recurring_period,
-      eventCheck.event_id, eventCheck.created_by_id, eventCheck.updated_by_id
+      eventCheck.event_id, eventCheck.created_by_id, eventCheck.updated_by_id, adminCheck.recurring_end_at,
+      adminCheck.recurring_end_at_time
     ],
   };
 
@@ -454,32 +459,213 @@ async function createEventCheck(root, args) {
   console.log('admin return', adminRes)
   eventCheck.admin_check_id = adminRes[0].id
 
-  console.log(`createEventCheck --> ${eventCheck}`);
+  //Admin check users
+  //create array to be used in pgp command
+  if (adminCheck.users?.length > 0) {
+    let adminUsers = adminCheck.users.map(user => {
+      return {
+        admincheck_id: adminRes[0].id,
+        user_id: user
+      }
+    })
+
+    //admin columns
+    let adminCS = new pgp.helpers.ColumnSet([
+      'admincheck_id',
+      'user_id'
+    ],
+      { table: TABLES.EVENT_ADMIN_CHECK_USERS })
+
+    let adminUserCommand = pgp.helpers.insert(adminUsers, adminCS);
+
+    let [adminUserRes] = await pgDb.any(adminUserCommand)
+
+    console.log('users attached to admin check')
+  }
+
+  let create = ``
+
+  console.log(`createEventCheck --> `, eventCheck);
 
   const [fields, values] = getFieldsAndValues(eventCheck);
+  //if reocuring then create a statement by iterating and generating values
+  if (adminCheck.recurring_period !== 'never') {
+    //
+    let startString = adminCheck.start_at + ' ' + adminCheck.start_at_time + '+00'
+    let endString = adminCheck.recurring_end_at + ' ' + adminCheck.recurring_end_at_time + '+00'
+    //let timeDiff =  end - start
+    let start = moment(startString, 'YYYY-MM-DD hh:mm a')
+    let end = moment(endString, 'YYYY-MM-DD hh:mm a')
 
-  const create = `INSERT INTO ${schema}.${TABLES.EVENT_CHECK} (${fields})
+    let result = await eventCheckSwitch(start, end, adminCheck)
+
+    //result generated is all times that event should be generated
+    let generateChecks = []
+    console.log({ result })
+    await Promise.all(result.map(date => {
+      //add to an array with eventCheck data and date generated and id from admin table
+      console.log('mapping result...')
+      generateChecks.push({ ...eventCheck, object_id: uid(20), occurs_at: date, admin_check_id: adminRes[0].id })
+    }))
+    console.log({ generateChecks })
+    const cs = new pgp.helpers.ColumnSet([
+      'deleted',
+      'created_at',
+      'updated_at',
+      'object_id',
+      'occurs_at',
+      'notified_user_of_availability',
+      'status',
+      'deleted_by_id',
+      'created_by_id',
+      'event_id',
+      'imported',
+      'admin_check_id'
+    ],
+      { table: TABLES.EVENT_CHECK })
+
+    const values = generateChecks
+
+    console.log({ cs }, { values })
+
+    create = pgp.helpers.insert(values, cs);
+    console.log('finished create')
+    create = create + `RETURNING id;`
+  }
+  //else just run one insert
+  else {
+    create = `INSERT INTO ${schema}.${TABLES.EVENT_CHECK} (${fields})
                                                       VALUES (${values}) 
                                                       RETURNING id;`;
+  }
 
-  console.log("createEventCheck Mutation:::", create);
   try {
-    let [createRes] = await pgDb.any(create);
+    console.log('create query: ', create)
+    let createRes = await pgDb.any(create);
     console.log("Row created::", createRes);
 
-    let resp = await pgDb.any(queries.getEventCheckQuery(createRes.id));
-    console.log("Response from RDS --> ", resp);
+    //event check users
+    if (adminCheck.users?.length > 0) {
+      let eventUsers = []
+      await Promise.all(createRes.map(async (res) => {
+        await Promise.all(adminCheck.users.map(user => {
+          eventUsers.push({
+            eventcheck_id: res.id,
+            user_id: user
+          })
+        }))
+      }))
 
-    resp = resp[0];
+      console.log('data for eventUsers', eventUsers)
+
+      let eventCS = new pgp.helpers.ColumnSet([
+        'eventcheck_id',
+        'user_id'
+      ],
+        { table: TABLES.EVENT_CHECK_USERS })
+
+      let eventUsersCommand = pgp.helpers.insert(eventUsers, eventCS);
+
+      let [eventUserRes] = await pgDb.any(eventUsersCommand)
+    }
+
+    let resp = adminRes[0];
+
+    resp.start_at = JSON.stringify(resp.start_at).split('"')[1].split('T')[0]
+    if(resp.recurring_end_at){
+      resp.recurring_end_at = JSON.stringify(resp.recurring_end_at).split('"')[1].split('T')[0]
+    }
+
+    console.log('creating response for ', resp)
+
     return response({
       result: resp,
-      main_object_name: "eventcheck",
       others: args,
     });
   } catch (ex) {
     handleErrors(ex, args);
   }
 }
+
+async function eventCheckSwitch(start, end, adminCheck) {
+  return new Promise(resolve => {
+    let current = moment(start)
+    var result = [];
+    console.log('switches', start, end, adminCheck, adminCheck.recurring_period)
+
+    switch (adminCheck.recurring_period) {
+      case "every-fifteen-minutes":
+        while (current <= end) {
+          result.push(current.format('YYYY-MM-DD HH:mm'));
+          current.add(15, 'minutes');
+        }
+        if (current > end) {
+          resolve(result)
+        }
+        break;
+      case "every-thirty-minutes":
+        while (current <= end) {
+          result.push(current.format('YYYY-MM-DD HH:mm'));
+          current.add(30, 'minutes');
+        }
+        if (current > end) {
+          resolve(result)
+        }
+        break;
+      case 'hourly':
+        while (current <= end) {
+          result.push(current.format('YYYY-MM-DD HH:mm'));
+          current.add(1, 'hours');
+        }
+        if (current > end) {
+          resolve(result)
+        }
+        break;
+      case 'daily':
+        console.log('daily')
+        while (current <= end) {
+          console.log(current.format('YYYY-MM-DD HH:mm'))
+          result.push(current.format('YYYY-MM-DD HH:mm'));
+          current.add(1, 'days');
+        }
+        if (current > end) {
+          resolve(result)
+        }
+        break;
+      case 'weekly':
+        while (current <= end) {
+          result.push(current.format('YYYY-MM-DD HH:mm'));
+          current.add(1, 'weeks');
+        }
+        if (current > end) {
+          resolve(result)
+        }
+        break;
+      case 'monthly':
+        while (current <= end) {
+          result.push(current.format('YYYY-MM-DD HH:mm'));
+          current.add(1, 'months');
+        }
+        if (current > end) {
+          resolve(result)
+        }
+        break;
+      case 'yearly':
+        while (current <= end) {
+          result.push(current.format('YYYY-MM-DD HH:mm'));
+          current.add(1, 'years');
+        }
+        if (current > end) {
+          resolve(result)
+        }
+        break;
+      default:
+        resolve('default triggered')
+        break;
+    }
+  })
+}
+
 async function updateEventCheck(root, args) {
   // Required fields - same as defined in database
   const eventCheck = {

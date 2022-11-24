@@ -16,7 +16,7 @@ type Subscription {
     @aws_subscribe(mutations: ["createIncidentMessageAsRead"])
 
   onCreateEvent: EventResult @aws_subscribe(mutations: ["createEvent"])
-  onCreateEventCheck: EventCheckResult
+  onCreateEventCheck: AdminCheckResult
     @aws_subscribe(mutations: ["createEventCheck"])
   onCreateEventCheckMessage: EventCheckMessageResult
     @aws_subscribe(mutations: ["createEventCheckMessage"])
@@ -109,6 +109,14 @@ type Query {
     sort: SORT
     loggedInUserId: ID!
   ): GroupsResult!
+
+  getAdminChecks(
+    eventId: ID!
+    limit: Int
+    offset: Int
+    sort: SORT
+  ): AdminChecksResult!
+  getAdminCheck(object_id: ID!): AdminCheckResult!
 }
 
 type Group {
@@ -192,8 +200,6 @@ type Mutation {
   deleteBatchGroups(ids: String!, deleted_by_id: ID!): GroupsResult!
 
   createEventCheck(
-    object_id: ID!
-    occurs_at: AWSDateTime!
     notified_user_of_availability: Boolean
     status: STATUS
     created_by_id: ID!
@@ -209,7 +215,8 @@ type Mutation {
     recurring_end_at: AWSDate
     recurring_end_at_time: AWSTime
     recurring_period: String
-  ): EventCheckResult!
+    users: AWSJSON
+  ): AdminCheckResult!
 
   createEventCheckMessage(
     loggedInUserId: ID!
@@ -341,7 +348,6 @@ type User {
   deleted: Boolean!
   deleted_by_id: Int
   deleted_on: AWSDateTime
-  device_token: String
   email_verified: Boolean!
   is_in_geofence: Boolean!
   is_shift_manager: Boolean!
@@ -359,6 +365,8 @@ type User {
   created_by_id: Int
   updated_by_id: Int
   imported: Boolean
+  device_token: [String]
+  logged_in: Boolean
 }
 
 type Client {
@@ -424,6 +432,7 @@ type Incident {
   updated_by: User
   imported: Boolean!
   incident_messages: [ID]
+  has_messages: Boolean
   subscribed_users: [ID]
   user_views: [IncidentUserView]
   triaging_allowed_users: [ID]
@@ -491,6 +500,7 @@ type AdminCheck {
   created_by_id: Int
   updated_by_id: Int
   imported: Boolean
+  users: [String]
 }
 
 type Event {
@@ -660,6 +670,16 @@ type GroupResult {
 
 type EventChecksResult {
   items: [EventCheck]!
+  count: Int
+  nextOffset: Int
+}
+
+type AdminCheckResult {
+  item: AdminCheck
+}
+
+type AdminChecksResult {
+  items: [AdminCheck]
   count: Int
   nextOffset: Int
 }

@@ -2,7 +2,8 @@
     "version": "2017-02-28",
     "operation": "Invoke",
     "payload": {
-        "field": "createMarkIncidentAsRead",
-        "arguments":  $utils.toJson($context.arguments)
+        "field": $utils.toJson($context.info.fieldName),
+        "arguments":  $utils.toJson($context.arguments),
+        "requestedFields": $utils.toJson($context.info.selectionSetList)
     }
 }

@@ -45,9 +45,8 @@ const getEventQuery = ({
 			    LEFT JOIN ${TABLES.EVENT} as ev
 				    ON ev.id = ef.event_id where Not ef.deleted GROUP BY ev.id) as ef
 	      ON ef.event_id = ev.id
-    WHERE ev.object_id = '${id}' AND NOT ev.deleted ${
-  clientID ? `AND ev.client_id = ${clientID}` : ""
-};`;
+    WHERE ev.object_id = '${id}' AND NOT ev.deleted ${clientID ? `AND ev.client_id = ${clientID}` : ""
+  };`;
 
 const getEventsQuery = ({
   limit,
@@ -94,9 +93,8 @@ const getEventsQuery = ({
 			    LEFT JOIN ${TABLES.EVENT} as ev
 				    ON ev.id = ef.event_id where Not ef.deleted GROUP BY ev.id) as ef
 	      ON ef.event_id = ev.id
-    WHERE NOT ev.deleted ${
-      clientID ? `AND ev.client_id = ${clientID}` : ""
-    } ORDER BY ev.start_date ${sort} OFFSET ${offset} LIMIT ${limit};`;
+    WHERE NOT ev.deleted ${clientID ? `AND ev.client_id = ${clientID}` : ""
+  } ORDER BY ev.start_date ${sort} OFFSET ${offset} LIMIT ${limit};`;
 
 const getUserEventsQuery = ({
   limit,
@@ -290,6 +288,37 @@ const getEventChecksQuery = ({
           WHERE NOT ec.deleted AND NOT ev.deleted AND ev.object_id = '${eventId}'
         ORDER BY ec.occurs_at, ec.id ${sort} OFFSET ${offset} LIMIT ${limit};`;
 
+const getAdminCheckQuery = (
+  object_id
+) => `SELECT row_to_json(ac.*) as admincheck,
+        COALESCE(check_users.users, '[]') as users 
+          FROM ${TABLES.EVENT_ADMIN_CHECK} as ac
+          LEFT JOIN 
+            (SELECT check_users.admincheck_id as admincheck_id, array_to_json(array_agg(usr.object_id)) as users from 
+              ${TABLES.EVENT_ADMIN_CHECK_USERS} as check_users
+                JOIN ${USER_TABLES.USER} as usr
+                on usr.id = check_users.user_id
+              GROUP BY check_users.admincheck_id) AS check_users
+                ON check_users.admincheck_id = ac.id 
+              where object_id = '${object_id}'`;
+
+const getAdminChecksQuery = (
+  eventId,
+  limit,
+  offset,
+  sort,
+) => `SELECT row_to_json(ac.*) as adminchecks,
+      COALESCE(check_users.users, '[]') as users 
+        FROM ${TABLES.EVENT_ADMIN_CHECK} as ac
+        LEFT JOIN 
+        (SELECT check_users.admincheck_id as admincheck_id, array_to_json(array_agg(usr.object_id)) as users from 
+          ${TABLES.EVENT_ADMIN_CHECK_USERS} as check_users
+            JOIN ${USER_TABLES.USER} as usr
+            on usr.id = check_users.user_id
+            GROUP BY check_users.admincheck_id) AS check_users
+        ON check_users.admincheck_id = ac.id
+      where event_id = ${eventId} ORDER BY id ${sort} OFFSET ${offset} LIMIT ${limit};`
+
 const getEventCheckMessageQuery = (object_id) => `Select 
       row_to_json(ecm.*) as eventcheckmessage, 
       row_to_json(ec.*) as event_check, 
@@ -366,11 +395,9 @@ const getEventCheckMessagesQuery = ({
                 GROUP BY read_by.message_id
               ) as read_by
         ON read_by.eventcheckmessage_id = ecm.id
-      WHERE NOT ec.deleted ${
-        clientID ? `AND usr.client_id = ${clientID}` : ""
-      } ${
-  eventCheckId ? `AND ec.object_id = '${eventCheckId}'` : ""
-} ORDER BY ecm.sent_at ${sort} OFFSET ${offset} LIMIT ${limit};`;
+      WHERE NOT ec.deleted ${clientID ? `AND usr.client_id = ${clientID}` : ""
+  } ${eventCheckId ? `AND ec.object_id = '${eventCheckId}'` : ""
+  } ORDER BY ecm.sent_at ${sort} OFFSET ${offset} LIMIT ${limit};`;
 
 const getEventCheckMessageViewQuery = (
   id
@@ -401,11 +428,12 @@ const getEventCheckMessageViewsQuery = ({
             `;
 
 const getStaffByEventQuery = ({
-              limit,
-              offset,
-              sort,
-              event_id
-            }) => `select uu.*, events.events as event_ids, row_to_json(cc.*) as client from ${USER_TABLES.USER} uu
+  limit,
+  offset,
+  sort,
+  event_id
+}) => `select uu.*, st_asgeojson(uu.location):: jsonb as location, events.events as event_ids, row_to_json(cc.*) as client , 
+              CASE WHEN EXTRACT(EPOCH FROM (NOW() - last_login)) < 3600 THEN true ELSE false END AS logged_in from  ${USER_TABLES.USER} uu
               left join ${USER_TABLES.CLIENT} cc on uu.client_id = cc.id
               LEFT JOIN (SELECT uu.id as user_id, array_to_json(array_agg(ev.object_id)) as events from
               ${USER_TABLES.USER} as uu
@@ -420,7 +448,7 @@ const getStaffByEventQuery = ({
                    where uu.deleted = false and ee.object_id = '${event_id}'
                     Order By uu.name ${sort} OFFSET ${offset} LIMIT ${limit};
             `;
-            
+
 module.exports = {
   getEventQuery,
   getEventsQuery,
@@ -428,6 +456,8 @@ module.exports = {
   getUserEventsQuery,
   getEventCheckQuery,
   getEventChecksQuery,
+  getAdminCheckQuery,
+  getAdminChecksQuery,
   getEventCheckMessageQuery,
   getEventCheckMessagesQuery,
   getEventCheckMessageViewQuery,

@@ -6,88 +6,99 @@ const queries = require("../../queries/incidentQueries");
 const handleErrors = require("../../utils/handleErrors");
 let { INVALID_REQUEST, PERMISSION_DENIED } = require("../../utils/createError");
 const { getIncidentID, isCrestAdmin } = require("../../utils/validatorQueries");
+const { getRequestedFields } = require("../../utils/requestedFieldsValidators");
+const { INCIDENT_TABLE_INFO } = require("../../db/tableRelations");
 
 const response = require("../response");
 
-async function getIncident(root, args) {
+async function getIncident(root, args, requiredFields) {
   try {
+    requiredFields = getRequestedFields(requiredFields, INCIDENT_TABLE_INFO);
+    console.log("The requested Incident fields:::", requiredFields);
+
     let resp = await pgDb.any(
-      queries.getIncidentQuery({
-        id: args.id,
-      })
+      queries.generateIncidentQuery({ id: args.id, requiredFields })
     );
     console.log("Response from RDS --> ", resp);
 
-    if (resp.length === 0) return response({ result: null, others: args });
-
-    resp = resp[0];
-
     return response({
-      result: resp,
-      main_object_name: "incident",
+      result: resp[0]?.data || null,
       others: args,
     });
-  } catch (ex) {
+  } catch (error) {
+    console.log("Error while getting incident:::", error);
     handleErrors(ex);
   }
 }
 
-async function getIncidents(root, args) {
+async function getIncidents(root, args, requiredFields) {
   let limit = parseInt(args.limit) || 100;
   let offset = parseInt(args.offset) || 0;
   let sort = args.sort || "ASC";
   const eventId = args.eventId;
 
   try {
+    requiredFields = getRequestedFields(requiredFields, INCIDENT_TABLE_INFO);
+    console.log("The requested Incidents fields:::", requiredFields);
+
     let resp = await pgDb.any(
-      queries.getIncidentsQuery({
+      queries.generateIncidentsQuery({
         limit,
         offset,
         sort,
         eventId: eventId ? eventId : null,
+        requiredFields: requiredFields,
       })
     );
-    console.log("Response from RDS --> ", resp);
+
+    const { data: incidents } = resp[0];
+    console.log("response from RDS --> ", incidents);
 
     args.limit = limit;
     args.offset = offset;
     return response({
-      result: resp,
-      main_object_name: "incident",
+      result: incidents || [],
       others: args,
     });
-  } catch (ex) {
-    handleErrors(ex);
+  } catch (error) {
+    console.log("Error while getting getIncidents response:::", error);
+    handleErrors(error);
   }
 }
 
-async function getClosedIncidents(root, args) {
+async function getClosedIncidents(root, args, requiredFields) {
   let limit = parseInt(args.limit) || 100;
   let offset = parseInt(args.offset) || 0;
   let sort = args.sort || "ASC";
   const eventId = args.eventId;
 
   try {
+    requiredFields = getRequestedFields(requiredFields, INCIDENT_TABLE_INFO);
+    console.log("The requested ClosedIncidents fields:::", requiredFields);
+
     let resp = await pgDb.any(
-      queries.getIncidentsQuery({
+      queries.generateIncidentsQuery({
         limit,
         offset,
         sort,
         eventId: eventId ? eventId : null,
         isClosed: true,
+        requiredFields,
       })
     );
-    console.log("Response from RDS --> ", resp);
+
+    const { data: closedIncidents } = resp[0];
+    console.log("response from RDS --> ", closedIncidents);
 
     args.limit = limit;
     args.offset = offset;
     return response({
-      result: resp,
-      main_object_name: "incident",
+      result: closedIncidents || [],
       others: args,
     });
-  } catch (ex) {
-    handleErrors(ex);
+  } catch (error) {
+    console.log("Error while getting getClosedIncidents response:::", error);
+    handleErrors(error);
   }
 }
 
